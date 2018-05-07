@@ -9,12 +9,13 @@
 #include "fields.h"
 
 #define DIM 3
+#define DOF 3
 
 #define numVars 27
 //include automatic differentiation library
 #include <Sacado.hpp>
-typedef Sacado::Fad::SFad<double,numVars> doubleAD;
-//typedef Sacado::Fad::DFad<double> doubleAD;
+//typedef Sacado::Fad::SFad<double,numVars> doubleAD;
+typedef Sacado::Fad::DFad<double> doubleAD;
 
 typedef struct {
   PetscReal nu,E,t,k;
@@ -25,10 +26,85 @@ typedef struct {
 template <class T>
 PetscErrorCode Function(IGAPoint p,
 				PetscReal shift,const PetscScalar *V,
-				PetscReal t,const T * U,
-				PetscReal t0,const PetscScalar * U0,
+				PetscReal t,const T * tempU,
+				PetscReal t0,const PetscScalar * tempU0,
 				T *R,void *ctx)
 {
+  AppCtx *user = (AppCtx *)ctx;
+  PetscReal nu = user->nu;
+  PetscReal E  = user->E;
+  PetscReal mu=user->E;
+  PetscReal thick  = user->t;
+  PetscReal k  = user->k;
+
+  PetscInt nen, dof;
+  IGAPointGetSizes(p,0,&nen,&dof);
+
+  //shape functions: value, grad, hess
+  PetscReal (*N) = (PetscReal (*)) p->shape[0];
+  PetscReal (*N1)[2] = (PetscReal (*)[2]) p->shape[1];
+  PetscReal (*N2)[2][2] = (PetscReal (*)[2][2]) p->shape[2];
+  
+  //get X
+  const PetscReal *tempX = p->geometry;
+  PetscReal (*X)[3] = (PetscReal (*)[3])tempX;
+  //get x
+  T x[nen][3];
+  T (*U)[DIM] = (T (*)[DIM])tempU;
+  for(unsigned int n=0; n<(unsigned int) nen; n++){
+    for(unsigned int d=0; d<DIM; d++) x[n][d]= X[n][d]+ U[n][d];
+  }
+
+  //compute metric tensors, a and A
+  T a[2][2], basis_x[3][2];
+  double A[2][2], basis_X[3][2];;
+  for(unsigned int d=0; d<3; d++){
+    basis_X[d][0]=basis_X[d][1]=0.0;
+    basis_x[d][0]=basis_x[d][1]=0.0;
+    for(unsigned int n=0; n<(unsigned int) nen; n++){
+      basis_X[d][0]+=N1[n][0]*X[n][d];
+      basis_X[d][1]+=N1[n][1]*X[n][d];	 
+      basis_x[d][0]+=N1[n][0]*x[n][d];
+      basis_x[d][1]+=N1[n][1]*x[n][d];	 
+    }
+  }
+
+  for(unsigned int d1=0; d1<2; d1++){
+    for(unsigned int d2=0; d2<2; d2++){
+      A[d1][d2]=0.0;
+      a[d1][d2]=0.0;
+      for(unsigned int n=0; n<(unsigned int) nen; n++){
+	A[d1][d2]+=basis_X[n][d1]*basis_X[n][d2];
+	a[d1][d2]+=basis_x[n][d1]*basis_x[n][d2];
+      }
+    }
+  }
+
+  //compute Jacobian
+  T J, J_a; double J_A;
+  J_A=sqrt(A[0][0]*A[1][1]-A[0][1]*A[1][0]);
+  J_a=sqrt(a[0][0]*a[1][1]-a[0][1]*a[1][0]);
+  J=J_a; ///J_A;
+  
+  //Stress
+  T Tau[2][2];
+  //For incompressible Neo-Hookean material
+   for (unsigned int i=0; i<2; i++){
+     for (unsigned int j=0; j<2; j++){
+       Tau[i][j]=mu*(A[i][j]-a[i][j]/(J*J));
+     }
+   }
+  //Residual
+  for (unsigned int n=0; n<(unsigned int)nen; n++) {
+    for (unsigned int i=0; i<2; i++){
+      T Ru_i=0.0;
+      for (unsigned int j=0; j<2; j++){
+	//grad(Na)*Tau
+	Ru_i += N1[n][j]*Tau[i][j];
+      }
+      R[n*2+i] = Ru_i;
+    }
+  }
   return 0;
 }
 
@@ -41,7 +117,7 @@ PetscErrorCode Residual(IGAPoint p,
                         PetscReal t0,const PetscScalar *U0, 
 			PetscScalar *R,void *ctx)
 {
-  //std::cout << "s";
+  std::cout << "R";
   Function(p, shift, V, t, U, t0, U0, R, ctx);
   return 0;
 }
@@ -49,18 +125,20 @@ PetscErrorCode Residual(IGAPoint p,
 #undef  __FUNCT__
 #define __FUNCT__ "Jacobian"
 PetscErrorCode Jacobian(IGAPoint p,
-				PetscReal shift,const PetscScalar *V,
-				PetscReal t,const PetscScalar *U,
-				PetscReal t0,const PetscScalar *U0,
-				PetscScalar *K,void *ctx)
+			PetscReal shift,const PetscScalar *V,
+			PetscReal t,const PetscScalar *U,
+			PetscReal t0,const PetscScalar *U0,
+			PetscScalar *K,void *ctx)
 {
-  return 0;
+  std::cout << "J";
   AppCtx *user = (AppCtx *)ctx;
   const PetscInt nen=p->nen, dof=DIM+1;
   const PetscReal (*U2)[DIM+1] = (PetscReal (*)[DIM+1])U;
+  /*
   if (dof*nen!=numVars) {
     PetscPrintf(PETSC_COMM_WORLD,"\ndof*nen!=numVars.... Set numVars = %u\n",dof*nen); exit(-1);
   }
+  */
   std::vector<doubleAD> U_AD(nen*dof);
   for(int i=0; i<nen*dof; i++){
     U_AD[i]=U[i];
@@ -153,7 +231,7 @@ int main(int argc, char *argv[]) {
   ierr = IGACreateVec(iga,&U);CHKERRQ(ierr);
   ierr = IGACreateVec(iga,&U0);CHKERRQ(ierr);
   //ierr = FormInitialCondition(iga, U0, &user); //set initial conditions
-  ierr = VecSet(U0,1.0);CHKERRQ(ierr);
+  ierr = VecSet(U0,0.0);CHKERRQ(ierr);
   ierr = VecCopy(U0, U);CHKERRQ(ierr);
   //
   ierr = IGASetFormIEFunction(iga,Residual,&user);CHKERRQ(ierr);
@@ -162,21 +240,23 @@ int main(int argc, char *argv[]) {
   TS ts;
   ierr = IGACreateTS(iga,&ts);CHKERRQ(ierr);
   ierr = TSSetType(ts,TSBEULER);CHKERRQ(ierr);
-  ierr = TSSetMaxSteps(ts,10);CHKERRQ(ierr);
+  ierr = TSSetMaxSteps(ts,2);CHKERRQ(ierr);
   ierr = TSSetExactFinalTime(ts,TS_EXACTFINALTIME_MATCHSTEP);CHKERRQ(ierr);
   ierr = TSSetTime(ts,0.0);CHKERRQ(ierr);
   ierr = TSSetTimeStep(ts,0.1);CHKERRQ(ierr);
   //ierr = TSMonitorSet(ts,OutputMonitor,&user,NULL);CHKERRQ(ierr);
+  ierr = TSSetFromOptions(ts);CHKERRQ(ierr);
+  
   //
-  SNES snes;
-  TSGetSNES(ts,&snes);
+  //SNES snes;
+  //TSGetSNES(ts,&snes);
   //SNESSetConvergenceTest(snes,SNESConverged_Interactive,(void*)&user,NULL);
   //SNESLineSearch ls;
   //SNESGetLineSearch(snes,&ls);
   //SNESLineSearchSetType(ls,SNESLINESEARCHBT);
   //ierr = SNESSetFromOptions(snes);CHKERRQ(ierr);
   //SNESLineSearchView(ls,NULL);
-  ierr = TSSetFromOptions(ts);CHKERRQ(ierr);
+ 
 #if PETSC_VERSION_LE(3,3,0)
   ierr = TSSolve(ts,U,NULL);CHKERRQ(ierr);
 #else
@@ -194,9 +274,9 @@ int main(int argc, char *argv[]) {
     //ierr = PetscPrintf(PETSC_COMM_SELF,"x[%d]=%g\n",index,(double)value);CHKERRQ(ierr);
   }
 
-  ierr = IGAWriteVec(iga,U0,"mesh.out");CHKERRQ(ierr);
+  ierr = IGAWriteVec(iga,U,"mesh.out");CHKERRQ(ierr);
 #if !defined(PETSC_USE_COMPLEX)
-  ierr = IGADrawVecVTK(iga,U0,"mesh.vts");CHKERRQ(ierr);
+  ierr = IGADrawVecVTK(iga,U,"mesh.vts");CHKERRQ(ierr);
 #endif
 
   //PetscBool draw = IGAGetOptBool(NULL,"-draw",PETSC_FALSE);
