@@ -18,6 +18,7 @@
 typedef Sacado::Fad::DFad<double> doubleAD;
 
 typedef struct {
+  IGA iga;
   PetscReal nu,E,t,k;
 } AppCtx;
 
@@ -214,7 +215,7 @@ PetscErrorCode SNESConverged_Interactive(SNES snes, PetscInt it,PetscReal xnorm,
   AppCtx *user  = (AppCtx*) ctx;
   PetscPrintf(PETSC_COMM_WORLD,"xnorm:%12.6e snorm:%12.6e fnorm:%12.6e\n",xnorm,snorm,fnorm);  
   //custom test
-  if (it>50){
+  if (it>500){
     *reason = SNES_CONVERGED_ITS;
     return(0);
   }
@@ -223,6 +224,20 @@ PetscErrorCode SNESConverged_Interactive(SNES snes, PetscInt it,PetscReal xnorm,
   PetscFunctionReturn(SNESConvergedDefault(snes,it,xnorm,snorm,fnorm,reason,ctx));
 }
 
+#undef __FUNCT__
+#define __FUNCT__ "OutputMonitor"
+PetscErrorCode OutputMonitor(TS ts,PetscInt it_number,PetscReal c_time,Vec U,void *mctx)
+{
+  PetscFunctionBegin;
+  PetscErrorCode ierr;
+  AppCtx *user = (AppCtx *)mctx;
+  char           filename[256];
+  sprintf(filename,"./outU%d.vts",it_number);
+  ierr = IGADrawVecVTK(user->iga,U,filename);CHKERRQ(ierr);
+  //
+  ierr = IGASetBoundaryValue(user->iga,0,1,0,0.1*it_number);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
 
 int main(int argc, char *argv[]) {
 
@@ -245,14 +260,16 @@ int main(int argc, char *argv[]) {
   ierr = IGASetUp(iga);CHKERRQ(ierr);
 
   // Boundary conditions on u = 0, v = [0:1]
-  ierr = IGASetBoundaryValue(iga,0,0,0,0.0);CHKERRQ(ierr);
-  ierr = IGASetBoundaryValue(iga,0,0,1,0.0);CHKERRQ(ierr);
-  ierr = IGASetBoundaryValue(iga,0,0,2,0.0);CHKERRQ(ierr);
-  ierr = IGASetBoundaryValue(iga,0,1,0,1.0);CHKERRQ(ierr);
+  //Symmetric BCs
+  ierr = IGASetBoundaryValue(iga,0,0,0,0.0);CHKERRQ(ierr); //X=0 on \eta_1=0
+  ierr = IGASetBoundaryValue(iga,1,0,2,0.0);CHKERRQ(ierr); //Z=0 on \eta_2=0
+  ierr = IGASetBoundaryValue(iga,1,1,1,0.0);CHKERRQ(ierr); //Y=0 on \eta_2=1
+  //ierr = IGASetBoundaryValue(iga,0,1,0,0.1);CHKERRQ(ierr);
   //
   ierr = IGASetFromOptions(iga);CHKERRQ(ierr);
   ierr = IGASetUp(iga);CHKERRQ(ierr);
-
+  user.iga = iga;
+  
   // // //
   Vec U,U0;
   ierr = IGACreateVec(iga,&U);CHKERRQ(ierr);
@@ -264,7 +281,7 @@ int main(int argc, char *argv[]) {
   ierr = IGASetFormIEFunction(iga,Residual,&user);CHKERRQ(ierr);
   ierr = IGASetFormIEJacobian(iga,Jacobian,&user);CHKERRQ(ierr);
   //
-  ierr = IGADrawVecVTK(iga,U,"solution.vts");CHKERRQ(ierr);
+  //ierr = IGADrawVecVTK(iga,U,"solution.vts");CHKERRQ(ierr);
   //
   TS ts;
   ierr = IGACreateTS(iga,&ts);CHKERRQ(ierr);
@@ -273,7 +290,7 @@ int main(int argc, char *argv[]) {
   ierr = TSSetExactFinalTime(ts,TS_EXACTFINALTIME_MATCHSTEP);CHKERRQ(ierr);
   ierr = TSSetTime(ts,0.0);CHKERRQ(ierr);
   ierr = TSSetTimeStep(ts,0.1);CHKERRQ(ierr);
-  //ierr = TSMonitorSet(ts,OutputMonitor,&user,NULL);CHKERRQ(ierr);
+  ierr = TSMonitorSet(ts,OutputMonitor,&user,NULL);CHKERRQ(ierr);
   ierr = TSSetFromOptions(ts);CHKERRQ(ierr);
   
   //
