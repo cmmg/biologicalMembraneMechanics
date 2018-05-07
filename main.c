@@ -25,10 +25,10 @@ typedef struct {
 #define __FUNCT__ "Function"
 template <class T>
 PetscErrorCode Function(IGAPoint p,
-				PetscReal shift,const PetscScalar *V,
-				PetscReal t,const T * tempU,
-				PetscReal t0,const PetscScalar * tempU0,
-				T *R,void *ctx)
+			PetscReal shift,const PetscScalar *V,
+			PetscReal t,const T * tempU,
+			PetscReal t0,const PetscScalar * tempU0,
+			T *R,void *ctx)
 {
   AppCtx *user = (AppCtx *)ctx;
   PetscReal nu = user->nu;
@@ -50,9 +50,9 @@ PetscErrorCode Function(IGAPoint p,
   PetscReal (*X)[3] = (PetscReal (*)[3])tempX;
   //get x
   T x[nen][3];
-  T (*U)[DIM] = (T (*)[DIM])tempU;
+  T (*u)[3] = (T (*)[3])tempU;
   for(unsigned int n=0; n<(unsigned int) nen; n++){
-    for(unsigned int d=0; d<DIM; d++) x[n][d]= X[n][d]+ U[n][d];
+    for(unsigned int d=0; d<3; d++) x[n][d]= X[n][d]+ u[n][d];
   }
 
   //compute metric tensors, a and A
@@ -73,7 +73,7 @@ PetscErrorCode Function(IGAPoint p,
     for(unsigned int d2=0; d2<2; d2++){
       A[d1][d2]=0.0;
       a[d1][d2]=0.0;
-      for(unsigned int n=0; n<(unsigned int) nen; n++){
+      for(unsigned int n=0; n<3; n++){
 	A[d1][d2]+=basis_X[n][d1]*basis_X[n][d2];
 	a[d1][d2]+=basis_x[n][d1]*basis_x[n][d2];
       }
@@ -84,25 +84,28 @@ PetscErrorCode Function(IGAPoint p,
   T J, J_a; double J_A;
   J_A=sqrt(A[0][0]*A[1][1]-A[0][1]*A[1][0]);
   J_a=sqrt(a[0][0]*a[1][1]-a[0][1]*a[1][0]);
-  J=J_a; ///J_A;
+  J=J_a+1; //J_A;///J_A;
   
   //Stress
   T Tau[2][2];
   //For incompressible Neo-Hookean material
-   for (unsigned int i=0; i<2; i++){
-     for (unsigned int j=0; j<2; j++){
-       Tau[i][j]=mu*(A[i][j]-a[i][j]/(J*J));
-     }
-   }
+  for (unsigned int i=0; i<2; i++){
+    for (unsigned int j=0; j<2; j++){
+      Tau[i][j]=mu*(A[i][j]-a[i][j]/(J*J));
+    }
+  }
+
   //Residual
   for (unsigned int n=0; n<(unsigned int)nen; n++) {
-    for (unsigned int i=0; i<2; i++){
+    for (unsigned int i=0; i<3; i++){
       T Ru_i=0.0;
       for (unsigned int j=0; j<2; j++){
-	//grad(Na)*Tau
-	Ru_i += N1[n][j]*Tau[i][j];
+	for (unsigned int k=0; k<2; k++){
+	  //grad(Na)*Tau
+	  Ru_i += N1[n][j]*Tau[j][k]*basis_x[i][k];
+	}
       }
-      R[n*2+i] = Ru_i;
+      R[n*3+i] = Ru_i;
     }
   }
   return 0;
@@ -117,8 +120,8 @@ PetscErrorCode Residual(IGAPoint p,
                         PetscReal t0,const PetscScalar *U0, 
 			PetscScalar *R,void *ctx)
 {
-  std::cout << "R";
-  Function(p, shift, V, t, U, t0, U0, R, ctx);
+  //std::cout << "R";
+  Function<PetscReal>(p, shift, V, t, U, t0, U0, R, ctx);
   return 0;
 }
 
@@ -130,10 +133,10 @@ PetscErrorCode Jacobian(IGAPoint p,
 			PetscReal t0,const PetscScalar *U0,
 			PetscScalar *K,void *ctx)
 {
-  std::cout << "J";
+  //std::cout << "J";
   AppCtx *user = (AppCtx *)ctx;
-  const PetscInt nen=p->nen, dof=DIM+1;
-  const PetscReal (*U2)[DIM+1] = (PetscReal (*)[DIM+1])U;
+  const PetscInt nen=p->nen, dof=DIM;
+  const PetscReal (*U2)[DIM] = (PetscReal (*)[DIM])U;
   /*
   if (dof*nen!=numVars) {
     PetscPrintf(PETSC_COMM_WORLD,"\ndof*nen!=numVars.... Set numVars = %u\n",dof*nen); exit(-1);
@@ -155,6 +158,7 @@ PetscErrorCode Jacobian(IGAPoint p,
       }
     }				
   }
+  //std::cout << "cccccccccccccccccccccccccccccccccccccccccccccc";
   return 0;    
 }
 
@@ -214,15 +218,10 @@ int main(int argc, char *argv[]) {
   ierr = IGASetUp(iga);CHKERRQ(ierr);
 
   // Boundary conditions on u = 0, v = [0:1]
+  ierr = IGASetBoundaryValue(iga,0,0,0,0.0);CHKERRQ(ierr);
   ierr = IGASetBoundaryValue(iga,0,0,1,0.0);CHKERRQ(ierr);
   ierr = IGASetBoundaryValue(iga,0,0,2,0.0);CHKERRQ(ierr);
-  // Boundary conditions on u = 1, v = [0:1]
-  ierr = IGASetBoundaryValue(iga,0,1,0,0.0);CHKERRQ(ierr);
-  // Boundary conditions on u = [0:1], v = 0
-  ierr = IGASetBoundaryValue(iga,1,0,1,0.0);CHKERRQ(ierr);
-  // Boundary conditions on u = [0:1], v = 1
-  ierr = IGASetBoundaryValue(iga,1,1,1,0.0);CHKERRQ(ierr);
-
+  //
   ierr = IGASetFromOptions(iga);CHKERRQ(ierr);
   ierr = IGASetUp(iga);CHKERRQ(ierr);
 
