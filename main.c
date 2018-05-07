@@ -93,10 +93,10 @@ PetscErrorCode Function(IGAPoint p,
   //For incompressible Neo-Hookean material
   for (unsigned int i=0; i<2; i++){
     for (unsigned int j=0; j<2; j++){
-      Tau[i][j]=mu*(A[i][j]-a[i][j]/(J*J));
+      Tau[i][j]=mu*(A[i][j]-a[i][j]/(J));
     }
   }
-
+  
   //Residual
   for (unsigned int n=0; n<(unsigned int)nen; n++) {
     for (unsigned int i=0; i<3; i++){
@@ -138,7 +138,7 @@ PetscErrorCode Jacobian(IGAPoint p,
   //std::cout << "J";
   AppCtx *user = (AppCtx *)ctx;
   const PetscInt nen=p->nen, dof=DIM;
-  const PetscReal (*U2)[DIM] = (PetscReal (*)[DIM])U;
+  //const PetscReal (*U2)[DIM] = (PetscReal (*)[DIM])U;
   /*
   if (dof*nen!=numVars) {
     PetscPrintf(PETSC_COMM_WORLD,"\ndof*nen!=numVars.... Set numVars = %u\n",dof*nen); exit(-1);
@@ -199,6 +199,21 @@ PetscErrorCode FormInitialCondition(IGA iga, Vec U, AppCtx *user)
 }
 */
 
+//snes convegence test
+PetscErrorCode SNESConverged_Interactive(SNES snes, PetscInt it,PetscReal xnorm, PetscReal snorm, PetscReal fnorm, SNESConvergedReason *reason, void *ctx){
+  AppCtx *user  = (AppCtx*) ctx;
+  PetscPrintf(PETSC_COMM_WORLD,"xnorm:%12.6e snorm:%12.6e fnorm:%12.6e\n",xnorm,snorm,fnorm);  
+  //custom test
+  if (it>3){
+    *reason = SNES_CONVERGED_ITS;
+    return(0);
+  }
+
+  //default test
+  PetscFunctionReturn(SNESConvergedDefault(snes,it,xnorm,snorm,fnorm,reason,ctx));
+}
+
+
 int main(int argc, char *argv[]) {
 
   char           filename[PETSC_MAX_PATH_LEN] = "mesh.dat";
@@ -207,7 +222,7 @@ int main(int argc, char *argv[]) {
 
   AppCtx user;
   user.nu = 0.3;
-  user.E  = 3.e7;
+  user.E  = 1.e2;
   user.t  = 1.;
   user.k  = 5./6.;
 
@@ -220,10 +235,10 @@ int main(int argc, char *argv[]) {
   ierr = IGASetUp(iga);CHKERRQ(ierr);
 
   // Boundary conditions on u = 0, v = [0:1]
-  ierr = IGASetBoundaryValue(iga,0,0,0,0.0);CHKERRQ(ierr);
-  ierr = IGASetBoundaryValue(iga,0,0,1,0.0);CHKERRQ(ierr);
-  ierr = IGASetBoundaryValue(iga,0,0,2,0.0);CHKERRQ(ierr);
-  ierr = IGASetBoundaryValue(iga,0,1,2,0.0001);CHKERRQ(ierr);
+  ierr = IGASetBoundaryValue(iga,1,0,0,0.0);CHKERRQ(ierr);
+  ierr = IGASetBoundaryValue(iga,1,0,1,0.0);CHKERRQ(ierr);
+  ierr = IGASetBoundaryValue(iga,1,0,2,0.0);CHKERRQ(ierr);
+  ierr = IGASetBoundaryValue(iga,1,1,0,0.001);CHKERRQ(ierr);
   //
   ierr = IGASetFromOptions(iga);CHKERRQ(ierr);
   ierr = IGASetUp(iga);CHKERRQ(ierr);
@@ -239,6 +254,8 @@ int main(int argc, char *argv[]) {
   ierr = IGASetFormIEFunction(iga,Residual,&user);CHKERRQ(ierr);
   ierr = IGASetFormIEJacobian(iga,Jacobian,&user);CHKERRQ(ierr);
   //
+  ierr = IGADrawVecVTK(iga,U,"solution.vts");CHKERRQ(ierr);
+  //
   TS ts;
   ierr = IGACreateTS(iga,&ts);CHKERRQ(ierr);
   ierr = TSSetType(ts,TSBEULER);CHKERRQ(ierr);
@@ -250,9 +267,9 @@ int main(int argc, char *argv[]) {
   ierr = TSSetFromOptions(ts);CHKERRQ(ierr);
   
   //
-  //SNES snes;
-  //TSGetSNES(ts,&snes);
-  //SNESSetConvergenceTest(snes,SNESConverged_Interactive,(void*)&user,NULL);
+  SNES snes;
+  TSGetSNES(ts,&snes);
+  SNESSetConvergenceTest(snes,SNESConverged_Interactive,(void*)&user,NULL);
   //SNESLineSearch ls;
   //SNESGetLineSearch(snes,&ls);
   //SNESLineSearchSetType(ls,SNESLINESEARCHBT);
