@@ -41,9 +41,9 @@ PetscErrorCode Function(IGAPoint p,
   IGAPointGetSizes(p,0,&nen,&dof);
 
   //shape functions: value, grad, hess
-  PetscReal (*N) = (PetscReal (*)) p->shape[0];
-  PetscReal (*N1)[2] = (PetscReal (*)[2]) p->shape[1];
-  PetscReal (*N2)[2][2] = (PetscReal (*)[2][2]) p->shape[2];
+  //PetscReal (*N) = (PetscReal (*)) p->shape[0];
+  PetscReal (*N1)[2] = (PetscReal (*)[2]) p->basis[1];
+  //PetscReal (*N2)[2][2] = (PetscReal (*)[2][2]) p->shape[2];
   
   //get X
   const PetscReal *tempX = p->geometry;
@@ -82,9 +82,11 @@ PetscErrorCode Function(IGAPoint p,
 
   //compute Jacobian
   T J, J_a; double J_A;
-  J_A=sqrt(A[0][0]*A[1][1]-A[0][1]*A[1][0]);
-  J_a=sqrt(a[0][0]*a[1][1]-a[0][1]*a[1][0]);
-  J=J_a+1; //J_A;///J_A;
+  J_A=(A[0][0]*A[1][1]-A[0][1]*A[1][0]);
+  J_a=(a[0][0]*a[1][1]-a[0][1]*a[1][0]);
+  //std::cout << J_A << ", " << A[0][0] <<"\n";
+  //if (J_A<0.0) exit(-1);
+  J=J_a/J_A;
   
   //Stress
   T Tau[2][2];
@@ -153,7 +155,7 @@ PetscErrorCode Jacobian(IGAPoint p,
     for(int d1=0; d1<dof; d1++){
       for(int n2=0; n2<nen; n2++){
 	for(int d2=0; d2<dof; d2++){
-      	  K[n1*dof*nen*dof + d1*nen*dof + n2*dof + d2] = R[n1*dof+d1].dx(n2*dof+d2);
+      	  K[n1*dof*nen*dof + d1*nen*dof + n2*dof + d2] = R[n1*dof+d1].fastAccessDx(n2*dof+d2);
 	}
       }
     }				
@@ -221,6 +223,7 @@ int main(int argc, char *argv[]) {
   ierr = IGASetBoundaryValue(iga,0,0,0,0.0);CHKERRQ(ierr);
   ierr = IGASetBoundaryValue(iga,0,0,1,0.0);CHKERRQ(ierr);
   ierr = IGASetBoundaryValue(iga,0,0,2,0.0);CHKERRQ(ierr);
+  ierr = IGASetBoundaryValue(iga,0,1,2,0.0001);CHKERRQ(ierr);
   //
   ierr = IGASetFromOptions(iga);CHKERRQ(ierr);
   ierr = IGASetUp(iga);CHKERRQ(ierr);
