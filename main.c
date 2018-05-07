@@ -33,26 +33,30 @@ PetscErrorCode Function(IGAPoint p,
   AppCtx *user = (AppCtx *)ctx;
   PetscReal nu = user->nu;
   PetscReal E  = user->E;
-  PetscReal mu=user->E;
   PetscReal thick  = user->t;
   PetscReal k  = user->k;
-
+  //material modulus
+  PetscReal mu=E/(0.5*(1+nu));
+  PetscReal lambda=E*nu/((1-2*nu)*(1+nu));
+  
   PetscInt nen, dof;
   IGAPointGetSizes(p,0,&nen,&dof);
 
   //shape functions: value, grad, hess
   //PetscReal (*N) = (PetscReal (*)) p->shape[0];
-  PetscReal (*N1)[2] = (PetscReal (*)[2]) p->basis[1];
+  const PetscReal (*N1)[2] = (const PetscReal (*)[2]) p->basis[1];
   //PetscReal (*N2)[2][2] = (PetscReal (*)[2][2]) p->shape[2];
   
   //get X
   const PetscReal *tempX = p->geometry;
-  PetscReal (*X)[3] = (PetscReal (*)[3])tempX;
+  const PetscReal (*X)[3] = (const PetscReal (*)[3])tempX;
   //get x
   T x[nen][3];
   T (*u)[3] = (T (*)[3])tempU;
   for(unsigned int n=0; n<(unsigned int) nen; n++){
-    for(unsigned int d=0; d<3; d++) x[n][d]= X[n][d]+ u[n][d];
+    for(unsigned int d=0; d<3; d++){
+      x[n][d]= X[n][d]+ u[n][d];
+    }
   }
 
   //compute metric tensors, a and A
@@ -93,7 +97,8 @@ PetscErrorCode Function(IGAPoint p,
   //For incompressible Neo-Hookean material
   for (unsigned int i=0; i<2; i++){
     for (unsigned int j=0; j<2; j++){
-      Tau[i][j]=mu*(A[i][j]-a[i][j]/(J));
+      //Tau[i][j]=mu*(A[i][j]-a[i][j]/(J))-0.01;
+      Tau[i][j]=mu*A[i][j]-mu*((lambda+2*mu)/(lambda*J+2*mu))*a[i][j];
     }
   }
   
@@ -110,6 +115,7 @@ PetscErrorCode Function(IGAPoint p,
       R[n*3+i] = Ru_i;
     }
   }
+  //R[0]+=1.0;
   return 0;
 }
 
@@ -124,6 +130,10 @@ PetscErrorCode Residual(IGAPoint p,
 {
   //std::cout << "R";
   Function<PetscReal>(p, shift, V, t, U, t0, U0, R, ctx);
+  PetscInt nen, dof;
+  IGAPointGetSizes(p,0,&nen,&dof);
+  //for(int n1=0; n1<nen*dof; n1++) std::cout << U[n1] << ", ";
+  //std::cout << "\n";
   return 0;
 }
 
@@ -204,7 +214,7 @@ PetscErrorCode SNESConverged_Interactive(SNES snes, PetscInt it,PetscReal xnorm,
   AppCtx *user  = (AppCtx*) ctx;
   PetscPrintf(PETSC_COMM_WORLD,"xnorm:%12.6e snorm:%12.6e fnorm:%12.6e\n",xnorm,snorm,fnorm);  
   //custom test
-  if (it>3){
+  if (it>50){
     *reason = SNES_CONVERGED_ITS;
     return(0);
   }
@@ -222,7 +232,7 @@ int main(int argc, char *argv[]) {
 
   AppCtx user;
   user.nu = 0.3;
-  user.E  = 1.e2;
+  user.E  = 1.0;
   user.t  = 1.;
   user.k  = 5./6.;
 
@@ -235,10 +245,10 @@ int main(int argc, char *argv[]) {
   ierr = IGASetUp(iga);CHKERRQ(ierr);
 
   // Boundary conditions on u = 0, v = [0:1]
-  ierr = IGASetBoundaryValue(iga,1,0,0,0.0);CHKERRQ(ierr);
-  ierr = IGASetBoundaryValue(iga,1,0,1,0.0);CHKERRQ(ierr);
-  ierr = IGASetBoundaryValue(iga,1,0,2,0.0);CHKERRQ(ierr);
-  ierr = IGASetBoundaryValue(iga,1,1,0,0.001);CHKERRQ(ierr);
+  ierr = IGASetBoundaryValue(iga,0,0,0,0.0);CHKERRQ(ierr);
+  ierr = IGASetBoundaryValue(iga,0,0,1,0.0);CHKERRQ(ierr);
+  ierr = IGASetBoundaryValue(iga,0,0,2,0.0);CHKERRQ(ierr);
+  ierr = IGASetBoundaryValue(iga,0,1,0,1.0);CHKERRQ(ierr);
   //
   ierr = IGASetFromOptions(iga);CHKERRQ(ierr);
   ierr = IGASetUp(iga);CHKERRQ(ierr);
@@ -259,7 +269,7 @@ int main(int argc, char *argv[]) {
   TS ts;
   ierr = IGACreateTS(iga,&ts);CHKERRQ(ierr);
   ierr = TSSetType(ts,TSBEULER);CHKERRQ(ierr);
-  ierr = TSSetMaxSteps(ts,2);CHKERRQ(ierr);
+  ierr = TSSetMaxSteps(ts,10);CHKERRQ(ierr);
   ierr = TSSetExactFinalTime(ts,TS_EXACTFINALTIME_MATCHSTEP);CHKERRQ(ierr);
   ierr = TSSetTime(ts,0.0);CHKERRQ(ierr);
   ierr = TSSetTimeStep(ts,0.1);CHKERRQ(ierr);
