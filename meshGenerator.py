@@ -1,7 +1,7 @@
 import sys, numpy as np
 from igakit.nurbs import NURBS
 
-N = 10
+N = 15
 p = 2
 if len(sys.argv) >= 2:
     N = int(sys.argv[1])
@@ -29,26 +29,4 @@ geom.refine(0,insert).refine(1,insert)
 
 if True:
     from igakit.io import PetIGA
-    PetIGA().write("ClassicalShell.dat", geom, nsd=3)
-
-if False:
-    from igakit.plot import plt
-    plt.figure()
-    plt.cpoint(geom)
-    plt.cwire(geom)
-    plt.kwire(geom)
-    plt.surface(geom)
-    plt.show()
-
-if False:
-    from igakit.io import PetIGA, VTK
-    nrb = PetIGA().read("ClassicalShell.dat")
-    sol = PetIGA().read_vec("ClassicalShell.out",nrb)
-    U = sol[...,:3]
-    X = nrb.points
-    W = nrb.weights
-    nrb = NURBS(nrb.knots, (X,W), U)
-    VTK().write("ClassicalShell.vtk", nrb,
-                scalars=dict(),
-                vectors=dict(displacement=[0,1,2]),
-                )
+    PetIGA().write("mesh.dat", geom, nsd=3)

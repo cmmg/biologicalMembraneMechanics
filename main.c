@@ -235,7 +235,7 @@ PetscErrorCode OutputMonitor(TS ts,PetscInt it_number,PetscReal c_time,Vec U,voi
   sprintf(filename,"./outU%d.vts",it_number);
   ierr = IGADrawVecVTK(user->iga,U,filename);CHKERRQ(ierr);
   //
-  ierr = IGASetBoundaryValue(user->iga,0,1,0,0.1*it_number);CHKERRQ(ierr);
+  ierr = IGASetBoundaryValue(user->iga,1,1,2,0.01*(it_number+1));CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -263,7 +263,7 @@ int main(int argc, char *argv[]) {
   //Symmetric BCs
   ierr = IGASetBoundaryValue(iga,0,0,0,0.0);CHKERRQ(ierr); //X=0 on \eta_1=0
   ierr = IGASetBoundaryValue(iga,1,0,2,0.0);CHKERRQ(ierr); //Z=0 on \eta_2=0
-  ierr = IGASetBoundaryValue(iga,1,1,1,0.0);CHKERRQ(ierr); //Y=0 on \eta_2=1
+  //ierr = IGASetBoundaryValue(iga,1,1,1,0.0);CHKERRQ(ierr); //Y=0 on \eta_2=1
   //ierr = IGASetBoundaryValue(iga,0,1,0,0.1);CHKERRQ(ierr);
   //
   ierr = IGASetFromOptions(iga);CHKERRQ(ierr);
