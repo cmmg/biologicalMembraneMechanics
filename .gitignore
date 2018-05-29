@@ -29,5 +29,4 @@ results*
 *.o*
 configForce.o*
 stress_stretch.txt
-Makefile
 build
