@@ -61,29 +61,19 @@ PetscErrorCode Function(IGAPoint p,
   }
 
   //compute metric tensors, a and A
-  T a[2][2]; //, basis_x[3][2];
-  double A[2][2]; //], basis_X[3][2];
-  /*
-    for(unsigned int d=0; d<3; d++){
+  T a[2][2], basis_x[3][2];
+  double A[2][2], basis_X[3][2];;
+  for(unsigned int d=0; d<3; d++){
     basis_X[d][0]=basis_X[d][1]=0.0;
     basis_x[d][0]=basis_x[d][1]=0.0;
     for(unsigned int n=0; n<(unsigned int) nen; n++){
-    basis_X[d][0]+=N1[n][0]*X[n][d];
-    basis_X[d][1]+=N1[n][1]*X[n][d];	 
-    basis_x[d][0]+=N1[n][0]*x[n][d];
-    basis_x[d][1]+=N1[n][1]*x[n][d];	 
-    }
-    }
-  */
-  PetscReal dUdR[3][2];
-  IGAPointFormGrad(p,tempU,&dUdR[0][0]); // After this call, dUdR is the 3x2
-  PetscReal (*basis_X)/*[3]*/[2] = (PetscReal (*)[2]) p->mapX[1];
-  PetscReal basis_x[3][2];
-  for (int i=0; i<3; i++){
-    for (int j=0; j<2; j++){
-      basis_x[i][j] = basis_X[i][j] + dUdR[i][j];
+      basis_X[d][0]+=N1[n][0]*X[n][d];
+      basis_X[d][1]+=N1[n][1]*X[n][d];	 
+      basis_x[d][0]+=N1[n][0]*x[n][d];
+      basis_x[d][1]+=N1[n][1]*x[n][d];	 
     }
   }
+
   for(unsigned int d1=0; d1<2; d1++){
     for(unsigned int d2=0; d2<2; d2++){
       A[d1][d2]=0.0;

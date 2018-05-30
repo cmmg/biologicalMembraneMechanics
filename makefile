@@ -1,4 +1,4 @@
-fileName=main
+fileName=writeMesh
 rm *.o $fileName
 
 TRILINOS_DIR=/Applications/deal.II.app/Contents/Resources/opt/trilinos-0b08cd5
