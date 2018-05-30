@@ -18,13 +18,25 @@ C4=line((R+r,0), (R+2*r,0));
 C5 = join(C1, C2, 0);
 C6 = join(C5, C3, 0);
 C7 = join(C6, C4, 0);
-to_insert = linspace(0,1.0,5)[1:-1];
 S = revolve(C7, (0,0), 1, angle=[0,2*Pi])
-S.refine(0,to_insert);
-S.refine(1,to_insert);
 
-#
+#refine along X
+to_insertX1 = np.setdiff1d(linspace(0,1.0,9)[1:-1],S.knots[0]);
+S.refine(0,to_insertX1)
+to_insertX2 = np.setdiff1d(linspace(1.0,2.0,21)[1:-1],S.knots[0]);
+S.refine(0,to_insertX2)
+to_insertX3 = np.setdiff1d(linspace(2.0,3.0,5)[1:-1],S.knots[0]);
+S.refine(0,to_insertX3)
+to_insertX4 = np.setdiff1d(linspace(3.0,4.0,5)[1:-1],S.knots[0]);
+S.refine(0,to_insertX4)
+
+#refine along Y
+to_insertY = np.setdiff1d(linspace(0,1.0,21)[1:-1],S.knots[1]);
+S.refine(1,to_insertY)
+
+#periodicity
+S.unclamp(0)
+
 #plt.plot(S,color='g')
 #plt.show()
-
 PetIGA().write("cylinder.dat",S,nsd=3)
