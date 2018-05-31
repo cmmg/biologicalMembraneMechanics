@@ -39,4 +39,4 @@ S.unclamp(0)
 
 #plt.plot(S,color='g')
 #plt.show()
-PetIGA().write("cylinder.dat",S,nsd=3)
+PetIGA().write("mesh.dat",S,nsd=3)
