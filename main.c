@@ -8,18 +8,13 @@
 //}
 #include "fields.h"
 
-#define DIM 3
-#define DOF 3
-
-#define numVars 27
 //include automatic differentiation library
 #include <Sacado.hpp>
-//typedef Sacado::Fad::SFad<double,numVars> doubleAD;
 typedef Sacado::Fad::DFad<double> doubleAD;
 
 typedef struct {
   IGA iga;
-  PetscReal nu,E,t,k;
+  PetscReal nu,E,t, k, delta;
 } AppCtx;
 
 #undef  __FUNCT__
@@ -35,22 +30,28 @@ PetscErrorCode Function(IGAPoint p,
   PetscReal nu = user->nu;
   PetscReal E  = user->E;
   PetscReal thick  = user->t;
-  PetscReal k  = user->k;
-  //material modulus
+  PetscReal K  = user->k; //bending modulus
+  PetscReal delta  = user->delta; //penalty parameter for incompressibility
+  
+  //Lame parameters
   PetscReal mu=E/(0.5*(1+nu));
   PetscReal lambda=E*nu/((1-2*nu)*(1+nu));
   
+  //instantaneous curvature
+  double H0=0.0;
+  
+  //get number of shape functions (nen) and dof's
   PetscInt nen, dof;
   IGAPointGetSizes(p,0,&nen,&dof);
 
   //shape functions: value, grad, hess
-  //PetscReal (*N) = (PetscReal (*)) p->shape[0];
+  const PetscReal (*N) = (const PetscReal (*)) p->shape[0];
   const PetscReal (*N1)[2] = (const PetscReal (*)[2]) p->basis[1];
-  //PetscReal (*N2)[2][2] = (PetscReal (*)[2][2]) p->shape[2];
+  const PetscReal (*N2)[2][2] = (const PetscReal (*)[2][2]) p->shape[2];
   
   //get X
-  const PetscReal *tempX = p->geometry;
-  const PetscReal (*X)[3] = (const PetscReal (*)[3])tempX;
+  const PetscReal (*X)[3] = (const PetscReal (*)[3]) p->geometry;;
+
   //get x
   T x[nen][3];
   T (*u)[3] = (T (*)[3])tempU;
@@ -60,56 +61,115 @@ PetscErrorCode Function(IGAPoint p,
     }
   }
 
-  //compute metric tensors, a and A
-  T a[2][2]; //, basis_x[3][2];
-  double A[2][2]; //], basis_X[3][2];
-  /*
-    for(unsigned int d=0; d<3; d++){
-    basis_X[d][0]=basis_X[d][1]=0.0;
-    basis_x[d][0]=basis_x[d][1]=0.0;
+  //compute basis vectors, dxdR and dXdR, gradient of basis vectors, dxdr2, and co-variant metric tensors, a and A. 
+  T dxdR[3][2], dxdR2[3][2][2], a[2][2];
+  double A[2][2], dXdR[3][2];
+  for(unsigned int d=0; d<3; d++){
+    dXdR[d][0]=dXdR[d][1]=0.0;
+    dxdR[d][0]=dxdR[d][1]=0.0;
+    dxdR2[d][0][0]=dxdR2[d][0][1]=0.0;
+    dxdR2[d][1][0]=dxdR2[d][1][1]=0.0;
     for(unsigned int n=0; n<(unsigned int) nen; n++){
-    basis_X[d][0]+=N1[n][0]*X[n][d];
-    basis_X[d][1]+=N1[n][1]*X[n][d];	 
-    basis_x[d][0]+=N1[n][0]*x[n][d];
-    basis_x[d][1]+=N1[n][1]*x[n][d];	 
-    }
-    }
-  */
-  PetscReal dUdR[3][2];
-  IGAPointFormGrad(p,tempU,&dUdR[0][0]); // After this call, dUdR is the 3x2
-  PetscReal (*basis_X)/*[3]*/[2] = (PetscReal (*)[2]) p->mapX[1];
-  PetscReal basis_x[3][2];
-  for (int i=0; i<3; i++){
-    for (int j=0; j<2; j++){
-      basis_x[i][j] = basis_X[i][j] + dUdR[i][j];
+      dXdR[d][0]+=N1[n][0]*X[n][d];
+      dXdR[d][1]+=N1[n][1]*X[n][d];	 
+      dxdR[d][0]+=N1[n][0]*x[n][d];
+      dxdR[d][1]+=N1[n][1]*x[n][d];
+      dxdR2[d][0][0]+=N2[n][0][0]*x[n][d];
+      dxdR2[d][0][1]+=N2[n][0][1]*x[n][d];
+      dxdR2[d][1][0]+=N2[n][1][0]*x[n][d];	    
+      dxdR2[d][1][1]+=N2[n][1][1]*x[n][d];
     }
   }
-  for(unsigned int d1=0; d1<2; d1++){
-    for(unsigned int d2=0; d2<2; d2++){
-      A[d1][d2]=0.0;
-      a[d1][d2]=0.0;
+  //
+  for(unsigned int i=0; i<2; i++){
+    for(unsigned int j=0; j<2; j++){
+      A[i][j]=0.0;
+      a[i][j]=0.0;
       for(unsigned int n=0; n<3; n++){
-	A[d1][d2]+=basis_X[n][d1]*basis_X[n][d2];
-	a[d1][d2]+=basis_x[n][d1]*basis_x[n][d2];
+	A[i][j]+=dXdR[n][i]*dXdR[n][j];
+	a[i][j]+=dxdR[n][i]*dxdR[n][j];
       }
     }
   }
 
-  //compute Jacobian
+  //compute Jacobians
   T J, J_a; double J_A;
-  J_A=(A[0][0]*A[1][1]-A[0][1]*A[1][0]);
-  J_a=(a[0][0]*a[1][1]-a[0][1]*a[1][0]);
+  J_A=std::sqrt(A[0][0]*A[1][1]-A[0][1]*A[1][0]);
+  J_a=std::sqrt(a[0][0]*a[1][1]-a[0][1]*a[1][0]);
   //std::cout << J_A << ", " << A[0][0] <<"\n";
   //if (J_A<0.0) exit(-1);
   J=J_a/J_A;
+
+  //compute normal
+  T n[3];
+  n[0]=(dxdR[1][0]*dxdR[2][1]-dxdR[2][0]*dxdR[1][1])/J_a;
+  n[1]=(dxdR[2][0]*dxdR[0][1]-dxdR[0][0]*dxdR[2][1])/J_a;
+  n[2]=(dxdR[0][0]*dxdR[1][1]-dxdR[1][0]*dxdR[0][1])/J_a;
+
+  //compute curvature tensor, b
+  T b[2][2];
+  for(unsigned int i=0; i<2; i++){
+    for(unsigned int j=0; j<2; j++){
+      b[i][j]=0.0;
+      for(unsigned int d=0; d<3; d++){
+	b[i][j]+=n[d]*dxdR2[d][i][j];
+      }
+    }
+  }
+
+  //compute contra-variant metric tensor, a_contra.
+  //needed for computing the contra-variant tanget vectors dxdR_contra, which are needed for computing the Christoffel symbols
+  T a_contra[2][2], dxdR_contra[3][2];
+  T det_a=a[0][0]*a[1][1]-a[0][1]*a[1][0];
+  a_contra[0][0]=a[1][1]/det_a; a_contra[1][1]=a[0][0]/det_a;
+  a_contra[0][1]=-a[0][1]/det_a; a_contra[1][0]=-a[1][0]/det_a;
+  for(unsigned int d=0; d<3; d++){
+    dxdR_contra[d][0]=a_contra[0][0]*dxdR[d][0]+a_contra[0][1]*dxdR[d][1];
+    dxdR_contra[d][1]=a_contra[1][0]*dxdR[d][0]+a_contra[1][1]*dxdR[d][1];
+  }
   
-  //Stress
-  T Tau[2][2];
-  //For incompressible Neo-Hookean material
+  //compute contra-variant curvature tensor, b_contra.
+  T b_contra[2][2];
+  for(unsigned int i=0; i<2; i++){
+    for(unsigned int j=0; j<2; j++){
+      b_contra[i][j]=0.0;
+      for(unsigned int k=0; k<2; k++){
+	for(unsigned int l=0; l<2; l++){
+	  b_contra[i][j]+=a_contra[i][k]*b[k][l]*a_contra[j][l];
+	}
+      }
+    }
+  }
+  
+  //compute Christoffel symbols
+  T Gamma[2][2][2];
+  for(unsigned int i=0; i<2; i++){
+    for(unsigned int j=0; j<2; j++){
+      for(unsigned int k=0; k<2; k++){
+	Gamma[i][j][k]=0.0;
+	for(unsigned int d=0; d<3; d++){
+	  Gamma[i][j][k]+=dxdR_contra[d][i]*dxdR2[d][j][k];
+	}
+      }
+    }
+  }
+
+  //compute Gaussian curvature, H
+  T H=0;
   for (unsigned int i=0; i<2; i++){
     for (unsigned int j=0; j<2; j++){
-      //Tau[i][j]=mu*(A[i][j]-a[i][j]/(J))-0.01;
-      Tau[i][j]=mu*A[i][j]-mu*((lambda+2*mu)/(lambda*J+2*mu))*a[i][j];
+      H+=0.5*a_contra[i][j]*b[i][j];
+    }
+  }
+  T dH=H-H0;
+
+  //compute stress and bending moment
+  T sigma[2][2], M[i][j];
+  //For Helfrich energy formulation
+  for (unsigned int i=0; i<2; i++){
+    for (unsigned int j=0; j<2; j++){
+      sigma[i][j]=(delta*(J-1.0)+K*dH*dH)*a_contra[i][j]-2*K*dH*b_contra[i][j];
+      M[i][j]=(K*dH)*a[i][j];
     }
   }
   
@@ -120,7 +180,7 @@ PetscErrorCode Function(IGAPoint p,
       for (unsigned int j=0; j<2; j++){
 	for (unsigned int k=0; k<2; k++){
 	  //grad(Na)*Tau
-	  Ru_i += N1[n][j]*Tau[j][k]*basis_x[i][k];
+	  Ru_i += N1[n][j]*Tau[j][k]*dxdR[i][k];
 	}
       }
       R[n*3+i] = Ru_i;
@@ -158,7 +218,7 @@ PetscErrorCode Jacobian(IGAPoint p,
 {
   //std::cout << "J";
   AppCtx *user = (AppCtx *)ctx;
-  const PetscInt nen=p->nen, dof=DIM;
+  const PetscInt nen=p->nen, dof=3;
   //const PetscReal (*U2)[DIM] = (PetscReal (*)[DIM])U;
   /*
   if (dof*nen!=numVars) {
@@ -258,9 +318,10 @@ int main(int argc, char *argv[]) {
   AppCtx user;
   user.nu = 0.3;
   user.E  = 1.0;
-  user.t  = 1.;
+  user.t  = 1.0;
   user.k  = 5./6.;
-
+  user.delta  = 1.0;
+  
   IGA iga;
   ierr = IGACreate(PETSC_COMM_WORLD,&iga);CHKERRQ(ierr);
   ierr = IGASetDof(iga,3);CHKERRQ(ierr); // dofs = {ux,uy,uz}
