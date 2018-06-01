@@ -6,7 +6,6 @@
 //extern "C" {
 #include "petiga.h"
 //}
-#include "fields.h"
 
 //include automatic differentiation library
 #include <Sacado.hpp>
@@ -28,10 +27,16 @@ PetscErrorCode Function(IGAPoint p,
 {
   AppCtx *user = (AppCtx *)ctx;
   PetscReal K  = user->k; //bending modulus
-  PetscReal delta  = user->delta; //penalty parameter for incompressibility
+  PetscReal delta  = 100*user->delta; //penalty parameter for incompressibility
+  //K=0;
   
   //instantaneous curvature
-  double H0=5.0;
+  double H0=0.0;
+  double E=1.0, nu=0.3;
+
+  //material modulus
+  PetscReal muStab=E/(0.5*(1+nu));
+  PetscReal lambda=E*nu/((1-2*nu)*(1+nu));
   
   //get number of shape functions (nen) and dof's
   PetscInt nen, dof;
@@ -156,7 +161,6 @@ PetscErrorCode Function(IGAPoint p,
     }
   }
   T dH=H-H0;
-  //std::cout << H.val() << ", ";
   
   //compute contra-variant stress and bending moment tensors
   T sigma[2][2], M[2][2];
@@ -164,10 +168,14 @@ PetscErrorCode Function(IGAPoint p,
   for (unsigned int i=0; i<2; i++){
     for (unsigned int j=0; j<2; j++){
       sigma[i][j]=((delta*(J-1.0)+K*dH*dH)*a_contra[i][j]-2*K*dH*b_contra[i][j]);
+      sigma[i][j]+=(muStab/J)*(A[i][j]-a[i][j]/(J*J));
       M[i][j]=(K*dH)*a[i][j];
     }
   }
-  
+  //std::cout << sigma[0][0].val() << ", " << sigma[0][1].val() << ", " << sigma[1][0].val() << ", " << sigma[1][1].val() << "  :  ";
+  //std::cout << M[0][0].val() << ", " << M[0][1].val() << ", " << M[1][0].val() << ", " << M[1][1].val() << "\n";
+
+    
   //Residual
   for (unsigned int n=0; n<(unsigned int)nen; n++) {
     for (unsigned int i=0; i<3; i++){
@@ -299,7 +307,7 @@ PetscErrorCode SNESConverged_Interactive(SNES snes, PetscInt it,PetscReal xnorm,
   AppCtx *user  = (AppCtx*) ctx;
   PetscPrintf(PETSC_COMM_WORLD,"xnorm:%12.6e snorm:%12.6e fnorm:%12.6e\n",xnorm,snorm,fnorm);  
   //custom test
-  if ((it>500) || (fnorm<1.0e-9)){
+  if ((it>100) || (fnorm<1.0e-12)){
     *reason = SNES_CONVERGED_ITS;
     return(0);
   }
@@ -320,6 +328,9 @@ PetscErrorCode OutputMonitor(TS ts,PetscInt it_number,PetscReal c_time,Vec U,voi
   ierr = IGADrawVecVTK(user->iga,U,filename);CHKERRQ(ierr);
   //
   //ierr = IGASetBoundaryValue(user->iga,1,1,2,0.01*(it_number+1));CHKERRQ(ierr);
+  ierr = IGASetBoundaryValue(user->iga,0,0,2,0.0001*(it_number+1));CHKERRQ(ierr); //Y=0 on \eta_2=1
+  ierr = IGASetBoundaryValue(user->iga,0,0,0,0.0);CHKERRQ(ierr); //Y=0 on \eta_2=1
+  ierr = IGASetBoundaryValue(user->iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 on \eta_2=1
   PetscFunctionReturn(0);
 }
 
@@ -338,21 +349,37 @@ int main(int argc, char *argv[]) {
   ierr = IGASetDof(iga,3);CHKERRQ(ierr); // dofs = {ux,uy,uz}
   ierr = IGASetDim(iga,2);CHKERRQ(ierr);
   ierr = IGASetGeometryDim(iga,3);CHKERRQ(ierr);
-  ierr = IGARead(iga,filename);CHKERRQ(ierr);
-  ierr = IGASetUp(iga);CHKERRQ(ierr);
-
-  // Boundary conditions on u = 0, v = [0:1]
-  //Symmetric BCs
-  ierr = IGASetBoundaryValue(iga,1,0,0,0.0);CHKERRQ(ierr); //X=0 on \eta_1=0
-  ierr = IGASetBoundaryValue(iga,1,0,1,0.0);CHKERRQ(ierr); //Z=0 on \eta_2=0
-  ierr = IGASetBoundaryValue(iga,1,0,2,0.0);CHKERRQ(ierr); //Z=0 on \eta_2=0  
-  ierr = IGASetBoundaryValue(iga,1,1,2,0.01);CHKERRQ(ierr); //Y=0 on \eta_2=1
-  //ierr = IGASetBoundaryValue(iga,0,1,0,0.1);CHKERRQ(ierr);
-
+  /*
+  IGAAxis axisX;
+  ierr = IGAGetAxis(iga,0,&axisX);CHKERRQ(ierr);
+  ierr = IGAAxisSetDegree(axisX,2);CHKERRQ(ierr);
+  IGAAxis axisY;
+  ierr = IGAGetAxis(iga,1,&axisY);CHKERRQ(ierr);
+  ierr = IGAAxisSetDegree(axisY,2);CHKERRQ(ierr);
+  //ierr = IGAAxisSetPeriodic(axisY,PETSC_TRUE);CHKERRQ(ierr); //periodicity
+  //Read mesh from file
+  */
+  //ierr = IGARead(iga,filename);CHKERRQ(ierr);  
   //
   ierr = IGASetFromOptions(iga);CHKERRQ(ierr);
   ierr = IGASetUp(iga);CHKERRQ(ierr);
   user.iga = iga;
+  IGAAxis axisY;  
+  ierr = IGAGetAxis(iga,1,&axisY);CHKERRQ(ierr);
+  PetscInt m; PetscReal* U1;
+  IGAAxisGetKnots(axisY, &m, &U1);
+  std::cout << m << " knots: ";
+  for (unsigned int i=0; i<(m+1); i++){
+    std::cout << U1[i] << ", ";
+  }
+  std::cout << std::endl;
+  // Boundary conditions on u = 0, v = [0:1]
+  //Symmetric BCs
+  ierr = IGASetBoundaryValue(iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 on \eta_1=0
+  ierr = IGASetBoundaryValue(iga,0,1,1,0.0);CHKERRQ(ierr); //Z=0 on \eta_2=0
+  ierr = IGASetBoundaryValue(iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 on \eta_2=0  
+  //ierr = IGASetBoundaryValue(iga,1,1,1,0.001);CHKERRQ(ierr); //Y=0 on \eta_2=1
+  //ierr = IGASetBoundaryValue(iga,1,1,0,0.01);CHKERRQ(ierr);
   
   // // //
   Vec U,U0;
@@ -370,10 +397,10 @@ int main(int argc, char *argv[]) {
   TS ts;
   ierr = IGACreateTS(iga,&ts);CHKERRQ(ierr);
   ierr = TSSetType(ts,TSBEULER);CHKERRQ(ierr);
-  ierr = TSSetMaxSteps(ts,10);CHKERRQ(ierr);
+  ierr = TSSetMaxSteps(ts,1000);CHKERRQ(ierr);
   ierr = TSSetExactFinalTime(ts,TS_EXACTFINALTIME_MATCHSTEP);CHKERRQ(ierr);
   ierr = TSSetTime(ts,0.0);CHKERRQ(ierr);
-  ierr = TSSetTimeStep(ts,0.1);CHKERRQ(ierr);
+  ierr = TSSetTimeStep(ts,1.0);CHKERRQ(ierr);
   ierr = TSMonitorSet(ts,OutputMonitor,&user,NULL);CHKERRQ(ierr);
   ierr = TSSetFromOptions(ts);CHKERRQ(ierr);
   
