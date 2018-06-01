@@ -15,6 +15,7 @@ typedef struct {
   IGA iga;
   PetscReal l;
   PetscReal kMean, kGaussian, delta, mu, epsilon;
+  PetscReal surfaceTension;
 } AppCtx;
 
 #undef  __FUNCT__
@@ -33,6 +34,7 @@ PetscErrorCode Function(IGAPoint p,
   PetscReal Lambda=user->delta; //penalty parameter for incompressibility
   PetscReal Mu=user->mu; //stabilzation parameter
   PetscReal Epsilon=user->epsilon;
+  PetscReal SurfaceTension=user->surfaceTension;
   
   //normalization
   PetscReal kBar=K/K, kGaussianBar=KGaussian/K, lambdaBar=Lambda*(L*L)/K;
@@ -223,21 +225,15 @@ PetscErrorCode Function(IGAPoint p,
     }
   }
   else{
-    PetscReal theta=t*3.14159/6.0;
     PetscReal pCoords[3];
     IGAPointFormGeomMap(p,pCoords);
-    if (pCoords[0]>0.5*(3*user->l)){theta*=-1;}
-    PetscReal nValue[3]={std::sin(theta), 0.0, std::cos(theta)};
+    PetscReal normPoint=std::sqrt(std::pow(pCoords[0],2)+std::pow(pCoords[1],2));
+    PetscReal nValue[3]={pCoords[0]/normPoint, pCoords[1]/normPoint, 0.0};
     //
     for (unsigned int n=0; n<(unsigned int)nen; n++) {
       for (unsigned int i=0; i<3; i++){
-	T Ru_i=0.0;
-	for (unsigned int j=0; j<2; j++){
-	  for (unsigned int d=0; d<3; d++){
-	    Ru_i+=epsilonBar*std::abs(nValue[0])*(N1[n][j]*normal[i]*nValue[d]*dxdR_contra[d][j]);
-	  }
-	}
-	R[n*3+i] = Ru_i;
+	T Ru_i=((L*L)/K)*N[n]*SurfaceTension*nValue[i];
+	R[n*3+i] = t*Ru_i;
       }
     }
   }
@@ -289,21 +285,35 @@ PetscErrorCode Jacobian(IGAPoint p,
     PetscPrintf(PETSC_COMM_WORLD,"\ndof*nen!=numVars.... Set numVars = %u\n",dof*nen); exit(-1);
   }
   */
-  std::vector<doubleAD> U_AD(nen*dof);
-  for(int i=0; i<nen*dof; i++){
-    U_AD[i]=U[i];
-    U_AD[i].diff(i, dof*nen);
-  } 
-  std::vector<doubleAD> R(nen*dof);
-  Function<doubleAD> (p, shift, V, t, &U_AD[0], t0, U0, &R[0], ctx);
-  for(int n1=0; n1<nen; n1++){
-    for(int d1=0; d1<dof; d1++){
-      for(int n2=0; n2<nen; n2++){
-	for(int d2=0; d2<dof; d2++){
-      	  K[n1*dof*nen*dof + d1*nen*dof + n2*dof + d2] = R[n1*dof+d1].fastAccessDx(n2*dof+d2);
+  bool surfaceFlag=p->atboundary;
+  if (!surfaceFlag){
+    std::vector<doubleAD> U_AD(nen*dof);
+    for(int i=0; i<nen*dof; i++){
+      U_AD[i]=U[i];
+      U_AD[i].diff(i, dof*nen);
+    } 
+    std::vector<doubleAD> R(nen*dof);
+    Function<doubleAD> (p, shift, V, t, &U_AD[0], t0, U0, &R[0], ctx);
+    for(int n1=0; n1<nen; n1++){
+      for(int d1=0; d1<dof; d1++){
+	for(int n2=0; n2<nen; n2++){
+	  for(int d2=0; d2<dof; d2++){
+	    K[n1*dof*nen*dof + d1*nen*dof + n2*dof + d2] = R[n1*dof+d1].fastAccessDx(n2*dof+d2);
+	  }
+	}
+      }				
+    }
+  }
+  else{
+    for(int n1=0; n1<nen; n1++){
+      for(int d1=0; d1<dof; d1++){
+	for(int n2=0; n2<nen; n2++){
+	  for(int d2=0; d2<dof; d2++){
+	    K[n1*dof*nen*dof + d1*nen*dof + n2*dof + d2] = 0.0;
+	  }
 	}
       }
-    }				
+    }
   }
   return 0;    
 }
@@ -335,7 +345,11 @@ PetscErrorCode OutputMonitor(TS ts,PetscInt it_number,PetscReal c_time,Vec U,voi
   ierr = IGADrawVecVTK(user->iga,U,filename);CHKERRQ(ierr);
   //std::cout << c_time << "\n";
   //
-  ierr = IGASetBoundaryValue(user->iga,1,0,1,-user->l*0.5*(c_time));CHKERRQ(ierr); //Y=lambda on \eta_2=0
+  
+  ierr = IGASetBoundaryValue(user->iga,0,0,2,user->l*(c_time));CHKERRQ(ierr); //Y=lambda on \eta_2=0
+  ierr = IGASetBoundaryValue(user->iga,0,0,0,0.0);CHKERRQ(ierr); //X=0 on \eta_1=0
+  ierr = IGASetBoundaryValue(user->iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 on \eta_1=0
+  
   PetscFunctionReturn(0);
 }
 
@@ -348,18 +362,23 @@ int main(int argc, char *argv[]) {
   AppCtx user;
   user.l=1.0;
   user.kMean=1.0;
-  user.kGaussian=-0.5*user.kMean;
-  user.delta=2.5;
-  user.mu=0.01;
-  user.epsilon=100*user.kMean/user.l;
+  user.kGaussian=-0.7*user.kMean;
+  user.delta=20000;
+  user.mu=0.1;
+  user.epsilon=0*100*user.kMean/user.l;
+  user.surfaceTension=100*user.kMean/(user.l*user.l);
   
   IGA iga;
   ierr = IGACreate(PETSC_COMM_WORLD,&iga);CHKERRQ(ierr);
   ierr = IGASetDof(iga,3);CHKERRQ(ierr); // dofs = {ux,uy,uz}
   ierr = IGASetDim(iga,2);CHKERRQ(ierr);
   ierr = IGASetGeometryDim(iga,3);CHKERRQ(ierr);
-  ierr = IGARead(iga,filename);CHKERRQ(ierr);  
-
+  IGAAxis axisY;
+  ierr = IGAGetAxis(iga,1,&axisY);CHKERRQ(ierr);
+  ierr = IGAAxisSetDegree(axisY,2);CHKERRQ(ierr);
+  ierr = IGAAxisSetPeriodic(axisY,PETSC_TRUE);CHKERRQ(ierr); //periodicity
+  //
+  ierr = IGARead(iga,filename);CHKERRQ(ierr);
   ierr = IGASetFromOptions(iga);CHKERRQ(ierr);
   ierr = IGASetUp(iga);CHKERRQ(ierr);
   user.iga = iga;
@@ -374,7 +393,7 @@ int main(int argc, char *argv[]) {
     std::cout << UX[i] << ", ";
   }
   std::cout << std::endl;
-  IGAAxis axisY;  
+  //IGAAxis axisY;  
   ierr = IGAGetAxis(iga,1,&axisY);CHKERRQ(ierr);
   PetscInt mY; PetscReal* UY;
   IGAAxisGetKnots(axisY, &mY, &UY);
@@ -385,16 +404,16 @@ int main(int argc, char *argv[]) {
   std::cout << std::endl;
   
   //Dirichlet BC's u = 0, v = [0:1]
-  ierr = IGASetBoundaryValue(iga,0,0,0,0.0);CHKERRQ(ierr); //X=0 on \eta_1=0
-  ierr = IGASetBoundaryValue(iga,0,0,2,0.0);CHKERRQ(ierr); //Z=0 on \eta_1=0
+  //ierr = IGASetBoundaryValue(iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 on \eta_1=1
+  //ierr = IGASetBoundaryValue(iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 on \eta_1=1
   ierr = IGASetBoundaryValue(iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 on \eta_1=1
-  ierr = IGASetBoundaryValue(iga,1,1,1,0.0);CHKERRQ(ierr); //Y=0 on \eta_2=1
+  //ierr = IGASetBoundaryValue(iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 on \eta_1=1
+  //ierr = IGASetBoundaryValue(iga,1,1,1,0.0);CHKERRQ(ierr); //Y=0 on \eta_2=1
   
   //Boundary form for Neumann BC's
-  
   IGAForm form;
   ierr = IGAGetForm(iga,&form);CHKERRQ(ierr);
-  ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr);
+  ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_FALSE);CHKERRQ(ierr);
   ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr);
   ierr = IGAFormSetBoundaryForm (form,1,0,PETSC_FALSE);CHKERRQ(ierr);
   ierr = IGAFormSetBoundaryForm (form,1,1,PETSC_FALSE);CHKERRQ(ierr);
@@ -413,13 +432,13 @@ int main(int argc, char *argv[]) {
   ierr = IGADrawVecVTK(iga,U,"mesh.vts");CHKERRQ(ierr);
   //
   TS ts;
-  PetscInt timeSteps=100;
+  PetscInt timeSteps=10000;
   ierr = IGACreateTS(iga,&ts);CHKERRQ(ierr);
   ierr = TSSetType(ts,TSBEULER);CHKERRQ(ierr);
   //ierr = TSSetMaxSteps(ts,timeSteps+1);CHKERRQ(ierr);
   ierr = TSSetMaxTime(ts, 1.0);
   ierr = TSSetExactFinalTime(ts,TS_EXACTFINALTIME_STEPOVER);CHKERRQ(ierr);
-  ierr = TSSetTime(ts,0.0);CHKERRQ(ierr);
+  ierr = TSSetTime(ts,1.0/timeSteps);CHKERRQ(ierr);
   ierr = TSSetTimeStep(ts,1.0/timeSteps);CHKERRQ(ierr);
   ierr = TSMonitorSet(ts,OutputMonitor,&user,NULL);CHKERRQ(ierr);
   ierr = TSSetFromOptions(ts);CHKERRQ(ierr);
