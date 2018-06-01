@@ -14,7 +14,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 typedef struct {
   IGA iga;
   PetscReal l;
-  PetscReal k, delta, mu, epsilon;
+  PetscReal kMean, kGaussian, delta, mu, epsilon;
 } AppCtx;
 
 #undef  __FUNCT__
@@ -28,13 +28,15 @@ PetscErrorCode Function(IGAPoint p,
 {
   AppCtx *user = (AppCtx *)ctx;
   PetscReal L=user->l; //Length scale for normalization
-  PetscReal K=user->k; //bending modulus
+  PetscReal K=user->kMean; //bending modulus
+  PetscReal KGaussian=user->kGaussian; //bending modulus
   PetscReal Lambda=user->delta; //penalty parameter for incompressibility
   PetscReal Mu=user->mu; //stabilzation parameter
   PetscReal Epsilon=user->epsilon;
   
   //normalization
-  PetscReal kBar=K/K, lambdaBar=Lambda*(L*L)/K, muBar=Mu*(L*L)/K, epsilonBar=Epsilon*(L/K); 
+  PetscReal kBar=K/K, kGaussianBar=KGaussian/K, lambdaBar=Lambda*(L*L)/K;
+  PetscReal muBar=Mu*(L*L)/K, epsilonBar=Epsilon*(L/K); 
   
   //instantaneous curvature
   double H0=0.0; 
@@ -98,8 +100,8 @@ PetscErrorCode Function(IGAPoint p,
   T J, J_a; double J_A;
   J_A=std::sqrt(A[0][0]*A[1][1]-A[0][1]*A[1][0]);
   J_a=std::sqrt(a[0][0]*a[1][1]-a[0][1]*a[1][0]);
-  //if (J_A<0.0) exit(-1);
   J=J_a/J_A;
+  if (J_A<0.0) {std::cout << "negative jacobian\n";  exit(-1);}
   //std::cout << J.val() << ", ";
 
   //compute normal
@@ -120,12 +122,15 @@ PetscErrorCode Function(IGAPoint p,
     }
   }
 
+  //compute determinants of metric tensors and curvature tensor
+  T det_a=a[0][0]*a[1][1]-a[0][1]*a[1][0];
+  T det_b=b[0][0]*b[1][1]-b[0][1]*b[1][0];
+  double det_A=A[0][0]*A[1][1]-A[0][1]*A[1][0];
+  
   //compute contra-variant metric tensors, a_contra, A_contra.
   //needed for computing the contra-variant tanget vectors dxdR_contra, which are needed for computing the Christoffel symbols
   T a_contra[2][2], dxdR_contra[3][2];
   double A_contra[2][2];
-  T det_a=a[0][0]*a[1][1]-a[0][1]*a[1][0];
-  double det_A=A[0][0]*A[1][1]-A[0][1]*A[1][0];
   a_contra[0][0]=a[1][1]/det_a; a_contra[1][1]=a[0][0]/det_a;
   a_contra[0][1]=-a[0][1]/det_a; a_contra[1][0]=-a[1][0]/det_a;
   A_contra[0][0]=A[1][1]/det_A; A_contra[1][1]=A[0][0]/det_A;
@@ -169,30 +174,32 @@ PetscErrorCode Function(IGAPoint p,
     }
   }
 
-  //compute Gaussian curvature, H
+  //compute mean curvature, H
   T H=0;
   for (unsigned int i=0; i<2; i++){
     for (unsigned int j=0; j<2; j++){
-      H+=0.5*a_contra[i][j]*b[i][j];
+      H+=0.5*a[i][j]*b_contra[i][j];
     }
   }
   T dH=H-H0;
+  //std::cout << dH.val() << ", ";
   
+  //compute Gaussian curvature, Kappa
+  T Kappa=det_b/det_a;
+    
   //compute contra-variant stress and bending moment tensors
-  T sigma[2][2], M[2][2];
+  T sigma_contra[2][2], M_contra[2][2];
   //For Helfrich energy formulation
   for (unsigned int i=0; i<2; i++){
     for (unsigned int j=0; j<2; j++){
-      sigma[i][j]=(L*L/K)*((Lambda*(J-1.0)+K*dH*dH)*a_contra[i][j]-2*K*dH*b_contra[i][j]);
-      sigma[i][j]+=(L*L/K)*(Mu/(J*J))*(A[i][j]-0.5*I1*a[i][j]); //stabilization term
-      M[i][j]=(L/K)*(K*dH)*a[i][j];
+      sigma_contra[i][j]=(L*L/K)*((Lambda*(J-1.0)+K*dH*dH - KGaussian*Kappa)*a_contra[i][j]-2*K*dH*b_contra[i][j]);
+      sigma_contra[i][j]+=(L*L/K)*(Mu/(J*J))*(A_contra[i][j]-0.5*I1*a_contra[i][j]); //stabilization term
+      M_contra[i][j]=(L/K)*(K*dH + 2*KGaussian*H)*a_contra[i][j]-KGaussian*b_contra[i][j];
     }
   }
   //std::cout << sigma[0][0].val() << ", " << sigma[0][1].val() << ", " << sigma[1][0].val() << ", " << sigma[1][1].val() << "  :  ";
   //std::cout << M[0][0].val() << ", " << M[0][1].val() << ", " << M[1][0].val() << ", " << M[1][1].val() << "\n";
-
-  PetscReal theta=t*3.142/6.0;
-  PetscReal nValue[3]={std::sin(theta), 0.0, std::cos(theta)};
+  
   bool surfaceFlag=p->atboundary;
   PetscReal *boundaryNormal = p->normal;
   //Residual
@@ -203,11 +210,11 @@ PetscErrorCode Function(IGAPoint p,
 	for (unsigned int j=0; j<2; j++){
 	  for (unsigned int k=0; k<2; k++){
 	    //sigma*grad(Na)*dxdR*J
-	    Ru_i += sigma[j][k]*N1[n][j]*dxdR[i][k]*J;
+	    Ru_i += sigma_contra[j][k]*N1[n][j]*dxdR[i][k]*J;
 	    //M*(hess(Na)-Gamma*grad(Na))*n*J
-	    Ru_i += M[j][k]*(N2[n][j][k])*normal[i]*J;
+	    Ru_i += M_contra[j][k]*(N2[n][j][k])*normal[i]*J;
 	    for (unsigned int l=0; l<2; l++){
-	      Ru_i += -M[j][k]*(Gamma[l][j][k]*N1[n][l])*normal[i]*J;
+	      Ru_i += -M_contra[j][k]*(Gamma[l][j][k]*N1[n][l])*normal[i]*J;
 	    }
 	  }
 	}
@@ -216,12 +223,18 @@ PetscErrorCode Function(IGAPoint p,
     }
   }
   else{
+    PetscReal theta=t*3.14159/6.0;
+    PetscReal pCoords[3];
+    IGAPointFormGeomMap(p,pCoords);
+    if (pCoords[0]>0.5*(3*user->l)){theta*=-1;}
+    PetscReal nValue[3]={std::sin(theta), 0.0, std::cos(theta)};
+    //
     for (unsigned int n=0; n<(unsigned int)nen; n++) {
       for (unsigned int i=0; i<3; i++){
 	T Ru_i=0.0;
 	for (unsigned int j=0; j<2; j++){
 	  for (unsigned int d=0; d<3; d++){
-	    Ru_i+=0.0*epsilonBar*nValue[0]*(N1[n][j]*normal[i]*nValue[d]*dxdR_contra[d][j]);
+	    Ru_i+=epsilonBar*std::abs(nValue[0])*(N1[n][j]*normal[i]*nValue[d]*dxdR_contra[d][j]);
 	  }
 	}
 	R[n*3+i] = Ru_i;
@@ -240,7 +253,8 @@ PetscErrorCode Residual(IGAPoint p,
                         PetscReal t0,const PetscScalar *U0, 
 			PetscScalar *R,void *ctx)
 {
-  //std::cout << "R";
+  Function<PetscReal>(p, shift, V, t, U, t0, U0, R, ctx);
+  /*
   const PetscInt nen=p->nen, dof=3;
   std::vector<doubleAD> U_AD(nen*dof);
   for(int i=0; i<nen*dof; i++){
@@ -254,12 +268,7 @@ PetscErrorCode Residual(IGAPoint p,
       R[n1*dof+d1]= tempR[n1*dof+d1].val();
     }
   }
-  
-  //Function<PetscReal>(p, shift, V, t, U, t0, U0, R, ctx);
-  //PetscInt nen, dof;
-  //IGAPointGetSizes(p,0,&nen,&dof);
-  //for(int n1=0; n1<nen*dof; n1++) std::cout << U[n1] << ", ";
-  //std::cout << "\n";
+  */
   return 0;
 }
 
@@ -296,44 +305,9 @@ PetscErrorCode Jacobian(IGAPoint p,
       }
     }				
   }
-  //std::cout << "cccccccccccccccccccccccccccccccccccccccccccccc";
   return 0;    
 }
 
-
-/*
-//Initial conditions for U
-typedef struct {
-  PetscReal ux, uy, uz;
-} Field;
-
-PetscErrorCode FormInitialCondition(IGA iga, Vec U, AppCtx *user)
-{	
-  PetscErrorCode ierr;
-  PetscFunctionBegin;
-  std::srand(5);
-  DM da;
-  ierr = IGACreateNodeDM(iga,DIM,&da);CHKERRQ(ierr);
-  Field ***u;
-  ierr = DMDAVecGetArray(da,U,&u);CHKERRQ(ierr);
-  DMDALocalInfo info;
-  ierr = DMDAGetLocalInfo(da,&info);CHKERRQ(ierr);
-  PetscInt i,j,k;
-  for(i=info.xs;i<info.xs+info.xm;i++){
-    for(j=info.ys;j<info.ys+info.ym;j++){
-      for(k=info.zs;k<info.zs+info.zm;k++){
-	u[k][j][i].ux=0.0;
-	u[k][j][i].uy=0.0;
-	u[k][j][i].uz=0.0;
-      }
-    }
-
-  }
-  ierr = DMDAVecRestoreArray(da,U,&u);CHKERRQ(ierr); 
-  ierr = DMDestroy(&da);;CHKERRQ(ierr); 
-  PetscFunctionReturn(0); 
-}
-*/
 
 //snes convegence test
 PetscErrorCode SNESConverged_Interactive(SNES snes, PetscInt it,PetscReal xnorm, PetscReal snorm, PetscReal fnorm, SNESConvergedReason *reason, void *ctx){
@@ -359,8 +333,9 @@ PetscErrorCode OutputMonitor(TS ts,PetscInt it_number,PetscReal c_time,Vec U,voi
   char           filename[256];
   sprintf(filename,"./outU%d.vts",it_number);
   ierr = IGADrawVecVTK(user->iga,U,filename);CHKERRQ(ierr);
+  //std::cout << c_time << "\n";
   //
-  ierr = IGASetBoundaryValue(user->iga,1,0,1,user->l*0.5*(it_number+1));CHKERRQ(ierr); //Y=lambda on \eta_2=0
+  ierr = IGASetBoundaryValue(user->iga,1,0,1,-user->l*0.5*(c_time));CHKERRQ(ierr); //Y=lambda on \eta_2=0
   PetscFunctionReturn(0);
 }
 
@@ -372,11 +347,12 @@ int main(int argc, char *argv[]) {
 
   AppCtx user;
   user.l=1.0;
-  user.k=1.0;
+  user.kMean=1.0;
+  user.kGaussian=-0.5*user.kMean;
   user.delta=2.5;
-  user.mu=0.0;
-  user.epsilon=100*user.k/user.l;
-    
+  user.mu=0.01;
+  user.epsilon=100*user.kMean/user.l;
+  
   IGA iga;
   ierr = IGACreate(PETSC_COMM_WORLD,&iga);CHKERRQ(ierr);
   ierr = IGASetDof(iga,3);CHKERRQ(ierr); // dofs = {ux,uy,uz}
@@ -440,8 +416,9 @@ int main(int argc, char *argv[]) {
   PetscInt timeSteps=100;
   ierr = IGACreateTS(iga,&ts);CHKERRQ(ierr);
   ierr = TSSetType(ts,TSBEULER);CHKERRQ(ierr);
-  ierr = TSSetMaxSteps(ts,timeSteps);CHKERRQ(ierr);
-  ierr = TSSetExactFinalTime(ts,TS_EXACTFINALTIME_MATCHSTEP);CHKERRQ(ierr);
+  //ierr = TSSetMaxSteps(ts,timeSteps+1);CHKERRQ(ierr);
+  ierr = TSSetMaxTime(ts, 1.0);
+  ierr = TSSetExactFinalTime(ts,TS_EXACTFINALTIME_STEPOVER);CHKERRQ(ierr);
   ierr = TSSetTime(ts,0.0);CHKERRQ(ierr);
   ierr = TSSetTimeStep(ts,1.0/timeSteps);CHKERRQ(ierr);
   ierr = TSMonitorSet(ts,OutputMonitor,&user,NULL);CHKERRQ(ierr);
