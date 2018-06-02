@@ -14,7 +14,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 typedef struct {
   IGA iga;
   PetscReal l;
-  PetscReal kMean, kGaussian, delta, mu, epsilon;
+  PetscReal kMean, kGaussian, mu, epsilon;
 } AppCtx;
 
 #undef  __FUNCT__
@@ -30,12 +30,11 @@ PetscErrorCode Function(IGAPoint p,
   PetscReal L=user->l; //Length scale for normalization
   PetscReal K=user->kMean; //bending modulus
   PetscReal KGaussian=user->kGaussian; //bending modulus
-  PetscReal Lambda=user->delta; //penalty parameter for incompressibility
   PetscReal Mu=user->mu; //stabilzation parameter
   PetscReal Epsilon=user->epsilon;
   
   //normalization
-  PetscReal kBar=K/K, kGaussianBar=KGaussian/K, lambdaBar=Lambda*(L*L)/K;
+  PetscReal kBar=K/K, kGaussianBar=KGaussian/K;
   PetscReal muBar=Mu*(L*L)/K, epsilonBar=Epsilon*(L/K); 
   
   //instantaneous curvature
@@ -53,16 +52,15 @@ PetscErrorCode Function(IGAPoint p,
   //get X
   const PetscReal (*X)[3] = (const PetscReal (*)[3]) p->geometry;
 
-  //get x
+  //get x, q
   T x[nen][3];
-  T (*u)[3] = (T (*)[3])tempU;
+  T (*u)[3+1] = (T (*)[3+1])tempU;
+  T q=0.0; //q is the Lagrange multiplier value at this point
   for(unsigned int n=0; n<(unsigned int) nen; n++){
     for(unsigned int d=0; d<3; d++){
       x[n][d]= X[n][d]+ u[n][d];
-      //normalization
-      //X[n][d]*=1.0/L;
-      //x[n][d]*=1.0/L;
     }
+    q+=N[n]*u[n][3];
   }
 
   //compute basis vectors, dxdR and dXdR, gradient of basis vectors, dxdr2, and co-variant metric tensors, a and A. 
@@ -182,7 +180,7 @@ PetscErrorCode Function(IGAPoint p,
     }
   }
   T dH=H-H0;
-  //std::cout << dH.val() << ", ";
+  std::cout << dH.val() << ", ";
   
   //compute Gaussian curvature, Kappa
   T Kappa=det_b/det_a;
@@ -192,7 +190,7 @@ PetscErrorCode Function(IGAPoint p,
   //For Helfrich energy formulation
   for (unsigned int i=0; i<2; i++){
     for (unsigned int j=0; j<2; j++){
-      sigma_contra[i][j]=(L*L/K)*((Lambda*(J-1.0)+K*dH*dH - KGaussian*Kappa)*a_contra[i][j]-2*K*dH*b_contra[i][j]);
+      sigma_contra[i][j]=(L*L/K)*((q+ K*dH*dH - KGaussian*Kappa)*a_contra[i][j]-2*K*dH*b_contra[i][j]);
       sigma_contra[i][j]+=(L*L/K)*(Mu/(J*J))*(A_contra[i][j]-0.5*I1*a_contra[i][j]); //stabilization term
       M_contra[i][j]=(L/K)*(K*dH + 2*KGaussian*H)*a_contra[i][j]-KGaussian*b_contra[i][j];
     }
@@ -205,6 +203,7 @@ PetscErrorCode Function(IGAPoint p,
   //Residual
   if (!surfaceFlag) {
     for (unsigned int n=0; n<(unsigned int)nen; n++) {
+      //displacement DOFs
       for (unsigned int i=0; i<3; i++){
 	T Ru_i=0.0;
 	for (unsigned int j=0; j<2; j++){
@@ -218,8 +217,11 @@ PetscErrorCode Function(IGAPoint p,
 	    }
 	  }
 	}
-	R[n*3+i] = Ru_i;
+	R[n*4+i] = Ru_i; //+0*q;
       }
+      //Lagrange multiplier DOF
+      //J-1
+      R[n*4+3] = N[n]*(J-1.0); //+0*q+0*sigma_contra[0][0]+0*M_contra[0][0];
     }
   }
   else{
@@ -234,11 +236,12 @@ PetscErrorCode Function(IGAPoint p,
 	T Ru_i=0.0;
 	for (unsigned int j=0; j<2; j++){
 	  for (unsigned int d=0; d<3; d++){
-	    Ru_i+=epsilonBar*std::abs(nValue[0])*(N1[n][j]*normal[i]*nValue[d]*dxdR_contra[d][j]);
+	    Ru_i+=epsilonBar*std::abs(nValue[0])*(N1[n][j]*normal[i]*nValue[d]*dxdR_contra[d][j]); //change of curve length not currently accounted as the corresponding Jacobian not yet implemented.
 	  }
 	}
-	R[n*3+i] = Ru_i;
+	R[n*4+i] = Ru_i; 
       }
+      R[n*4+3] = 0.0; 
     }
   }
   return 0; 
@@ -253,9 +256,9 @@ PetscErrorCode Residual(IGAPoint p,
                         PetscReal t0,const PetscScalar *U0, 
 			PetscScalar *R,void *ctx)
 {
-  Function<PetscReal>(p, shift, V, t, U, t0, U0, R, ctx);
-  /*
-  const PetscInt nen=p->nen, dof=3;
+  //Function<PetscReal>(p, shift, V, t, U, t0, U0, R, ctx);
+  
+  const PetscInt nen=p->nen, dof=3+1;
   std::vector<doubleAD> U_AD(nen*dof);
   for(int i=0; i<nen*dof; i++){
     U_AD[i]=U[i];
@@ -268,7 +271,7 @@ PetscErrorCode Residual(IGAPoint p,
       R[n1*dof+d1]= tempR[n1*dof+d1].val();
     }
   }
-  */
+  
   return 0;
 }
 
@@ -282,7 +285,7 @@ PetscErrorCode Jacobian(IGAPoint p,
 {
   //std::cout << "J";
   AppCtx *user = (AppCtx *)ctx;
-  const PetscInt nen=p->nen, dof=3;
+  const PetscInt nen=p->nen, dof=3+1;
   //const PetscReal (*U2)[DIM] = (PetscReal (*)[DIM])U;
   /*
   if (dof*nen!=numVars) {
@@ -300,7 +303,7 @@ PetscErrorCode Jacobian(IGAPoint p,
     for(int d1=0; d1<dof; d1++){
       for(int n2=0; n2<nen; n2++){
 	for(int d2=0; d2<dof; d2++){
-      	  K[n1*dof*nen*dof + d1*nen*dof + n2*dof + d2] = R[n1*dof+d1].fastAccessDx(n2*dof+d2);
+      	  K[n1*dof*nen*dof + d1*nen*dof + n2*dof + d2] = R[n1*dof+d1].dx(n2*dof+d2);
 	}
       }
     }				
@@ -335,7 +338,7 @@ PetscErrorCode OutputMonitor(TS ts,PetscInt it_number,PetscReal c_time,Vec U,voi
   ierr = IGADrawVecVTK(user->iga,U,filename);CHKERRQ(ierr);
   //std::cout << c_time << "\n";
   //
-  ierr = IGASetBoundaryValue(user->iga,1,0,1,-user->l*0.5*(c_time));CHKERRQ(ierr); //Y=lambda on \eta_2=0
+  ierr = IGASetBoundaryValue(user->iga,1,0,1,-user->l*0.5*(c_time));CHKERRQ(ierr); //Y=t on \eta_2=0
   PetscFunctionReturn(0);
 }
 
@@ -349,13 +352,12 @@ int main(int argc, char *argv[]) {
   user.l=1.0;
   user.kMean=1.0;
   user.kGaussian=-0.5*user.kMean;
-  user.delta=2.5;
   user.mu=0.01;
   user.epsilon=100*user.kMean/user.l;
   
   IGA iga;
   ierr = IGACreate(PETSC_COMM_WORLD,&iga);CHKERRQ(ierr);
-  ierr = IGASetDof(iga,3);CHKERRQ(ierr); // dofs = {ux,uy,uz}
+  ierr = IGASetDof(iga,4);CHKERRQ(ierr); // dofs = {ux,uy,uz, lambda}
   ierr = IGASetDim(iga,2);CHKERRQ(ierr);
   ierr = IGASetGeometryDim(iga,3);CHKERRQ(ierr);
   ierr = IGARead(iga,filename);CHKERRQ(ierr);  
@@ -417,7 +419,7 @@ int main(int argc, char *argv[]) {
   ierr = IGACreateTS(iga,&ts);CHKERRQ(ierr);
   ierr = TSSetType(ts,TSBEULER);CHKERRQ(ierr);
   //ierr = TSSetMaxSteps(ts,timeSteps+1);CHKERRQ(ierr);
-  ierr = TSSetMaxTime(ts, 1.0);
+  ierr = TSSetMaxTime(ts, 1.01);
   ierr = TSSetExactFinalTime(ts,TS_EXACTFINALTIME_STEPOVER);CHKERRQ(ierr);
   ierr = TSSetTime(ts,0.0);CHKERRQ(ierr);
   ierr = TSSetTimeStep(ts,1.0/timeSteps);CHKERRQ(ierr);
