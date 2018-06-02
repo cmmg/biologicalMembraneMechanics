@@ -7,10 +7,10 @@ from igakit.io import PetIGA
 from numpy import linspace
 
 #Geometry
-R=0.01;
+R=1.0;
 
-c1=circle(R, (0,0,1))
-c2=circle(100*R, (0,0,1))
+c1=circle(0.005*R, (0,0,1))
+c2=circle(R, (0,0,1))
 #c1 = circle(radius=R)
 #c2 = circle(radius=20*R)
 S = ruled(c1,c2).transpose().elevate(0,1)
@@ -18,8 +18,8 @@ S = ruled(c1,c2).transpose().elevate(0,1)
 #refine along X
 to_insertX = np.setdiff1d(linspace(0,0.25,11)[1:-1],S.knots[0]);
 S.refine(0,to_insertX)
-to_insertX = np.setdiff1d(linspace(0.25,1.0,5)[1:-1],S.knots[0]);
-S.refine(0,to_insertX)
+#to_insertX = np.setdiff1d(linspace(0.25,1.0,5)[1:-1],S.knots[0]);
+#S.refine(0,to_insertX)
 
 #refine along Y
 to_insertY = np.setdiff1d(linspace(0,1.0,21)[1:-1],S.knots[1]);

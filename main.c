@@ -225,15 +225,22 @@ PetscErrorCode Function(IGAPoint p,
     }
   }
   else{
+    //
     PetscReal pCoords[3];
     IGAPointFormGeomMap(p,pCoords);
     PetscReal normPoint=std::sqrt(std::pow(pCoords[0],2)+std::pow(pCoords[1],2));
     PetscReal nValue[3]={pCoords[0]/normPoint, pCoords[1]/normPoint, 0.0};
+    PetscReal nValueZ[3]={0.0, 0.0, 1.0};
     //
     for (unsigned int n=0; n<(unsigned int)nen; n++) {
       for (unsigned int i=0; i<3; i++){
-	T Ru_i=((L*L)/K)*N[n]*SurfaceTension*nValue[i];
-	R[n*3+i] = t*Ru_i;
+	T Ru_i=t*((L*L)/K)*N[n]*SurfaceTension*nValue[i];
+	for (unsigned int j=0; j<2; j++){
+	  for (unsigned int d=0; d<3; d++){
+	    Ru_i+=epsilonBar*(N1[n][j]*normal[i]*nValueZ[d]*dxdR_contra[d][j]);
+	  }
+	}
+	R[n*3+i] = Ru_i;
       }
     }
   }
@@ -363,9 +370,9 @@ int main(int argc, char *argv[]) {
   user.l=1.0;
   user.kMean=1.0;
   user.kGaussian=-0.7*user.kMean;
-  user.delta=20000;
+  user.delta=20000.0;
   user.mu=0.1;
-  user.epsilon=0*100*user.kMean/user.l;
+  user.epsilon=10*user.kMean/user.l;
   user.surfaceTension=100*user.kMean/(user.l*user.l);
   
   IGA iga;
@@ -432,13 +439,13 @@ int main(int argc, char *argv[]) {
   ierr = IGADrawVecVTK(iga,U,"mesh.vts");CHKERRQ(ierr);
   //
   TS ts;
-  PetscInt timeSteps=10000;
+  PetscInt timeSteps=100000;
   ierr = IGACreateTS(iga,&ts);CHKERRQ(ierr);
   ierr = TSSetType(ts,TSBEULER);CHKERRQ(ierr);
   //ierr = TSSetMaxSteps(ts,timeSteps+1);CHKERRQ(ierr);
   ierr = TSSetMaxTime(ts, 1.0);
   ierr = TSSetExactFinalTime(ts,TS_EXACTFINALTIME_STEPOVER);CHKERRQ(ierr);
-  ierr = TSSetTime(ts,1.0/timeSteps);CHKERRQ(ierr);
+  ierr = TSSetTime(ts,0.0);CHKERRQ(ierr);
   ierr = TSSetTimeStep(ts,1.0/timeSteps);CHKERRQ(ierr);
   ierr = TSMonitorSet(ts,OutputMonitor,&user,NULL);CHKERRQ(ierr);
   ierr = TSSetFromOptions(ts);CHKERRQ(ierr);
