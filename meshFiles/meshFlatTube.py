@@ -8,7 +8,7 @@ from numpy import linspace
 
 #Geometry
 R=0.01;
-
+ 
 c1=circle(R, (0,0,1))
 c2=circle(100*R, (0,0,1))
 c1.remove(0,0.25);c1.remove(0,0.5);c1.remove(0,0.75);

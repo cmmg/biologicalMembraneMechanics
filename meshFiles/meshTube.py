@@ -35,7 +35,8 @@ to_insertY = np.setdiff1d(linspace(0,1.0,21)[1:-1],S.knots[1]);
 S.refine(1,to_insertY)
 
 #periodicity
-S.unclamp(0)
+#S.unclamp(0)
+S.unclamp(1, continuity=1)
 
 #plt.plot(S,color='g')
 #plt.show()

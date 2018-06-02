@@ -65,7 +65,7 @@ PetscErrorCode Function(IGAPoint p,
 
   //compute basis vectors, dxdR and dXdR, gradient of basis vectors, dxdr2, and co-variant metric tensors, a and A. 
   T dxdR[3][2], dxdR2[3][2][2], a[2][2];
-  double A[2][2], dXdR[3][2];
+  double A[2][2], dXdR[3][2], dXdR2[3][2][2];
   for(unsigned int d=0; d<3; d++){
     dXdR[d][0]=dXdR[d][1]=0.0;
     dxdR[d][0]=dxdR[d][1]=0.0;
@@ -73,7 +73,12 @@ PetscErrorCode Function(IGAPoint p,
     dxdR2[d][1][0]=dxdR2[d][1][1]=0.0;
     for(unsigned int n=0; n<(unsigned int) nen; n++){
       dXdR[d][0]+=N1[n][0]*X[n][d];
-      dXdR[d][1]+=N1[n][1]*X[n][d];	 
+      dXdR[d][1]+=N1[n][1]*X[n][d];
+      dXdR2[d][0][0]+=N2[n][0][0]*X[n][d];
+      dXdR2[d][0][1]+=N2[n][0][1]*X[n][d];
+      dXdR2[d][1][0]+=N2[n][1][0]*X[n][d];	    
+      dXdR2[d][1][1]+=N2[n][1][1]*X[n][d];
+      //
       dxdR[d][0]+=N1[n][0]*x[n][d];
       dxdR[d][1]+=N1[n][1]*x[n][d];
       dxdR2[d][0][0]+=N2[n][0][0]*x[n][d];
@@ -104,18 +109,24 @@ PetscErrorCode Function(IGAPoint p,
 
   //compute normal
   T normal[3];
+  double Normal[3];
   normal[0]=(dxdR[1][0]*dxdR[2][1]-dxdR[2][0]*dxdR[1][1])/J_a;
   normal[1]=(dxdR[2][0]*dxdR[0][1]-dxdR[0][0]*dxdR[2][1])/J_a;
   normal[2]=(dxdR[0][0]*dxdR[1][1]-dxdR[1][0]*dxdR[0][1])/J_a;
+  Normal[0]=(dXdR[1][0]*dXdR[2][1]-dXdR[2][0]*dXdR[1][1])/J_A;
+  Normal[1]=(dXdR[2][0]*dXdR[0][1]-dXdR[0][0]*dXdR[2][1])/J_A;
+  Normal[2]=(dXdR[0][0]*dXdR[1][1]-dXdR[1][0]*dXdR[0][1])/J_A;
   //std::cout << normal[0].val() << ", " << normal[1].val() << ", " << normal[2].val() << "\n";
   
   //compute curvature tensor, b
   T b[2][2];
+  double B[2][2];
   for(unsigned int i=0; i<2; i++){
     for(unsigned int j=0; j<2; j++){
-      b[i][j]=0.0;
+      b[i][j]=0.0; B[i][j]=0.0;
       for(unsigned int d=0; d<3; d++){
 	b[i][j]+=normal[d]*dxdR2[d][i][j];
+	B[i][j]+=Normal[d]*dXdR2[d][i][j];
       }
     }
   }
@@ -148,11 +159,14 @@ PetscErrorCode Function(IGAPoint p,
   
   //compute contra-variant curvature tensor, b_contra.
   T b_contra[2][2];
+  double B_contra[2][2];
   for(unsigned int i=0; i<2; i++){
     for(unsigned int j=0; j<2; j++){
+      B_contra[i][j]=0.0;
       b_contra[i][j]=0.0;
       for(unsigned int k=0; k<2; k++){
 	for(unsigned int l=0; l<2; l++){
+	  B_contra[i][j]+=A_contra[i][k]*B[k][l]*A_contra[l][j]; //*
 	  b_contra[i][j]+=a_contra[i][k]*b[k][l]*a_contra[l][j]; //*
 	}
       }
@@ -174,9 +188,11 @@ PetscErrorCode Function(IGAPoint p,
 
   //compute mean curvature, H
   T H=0;
+  H0=0.0;
   for (unsigned int i=0; i<2; i++){
     for (unsigned int j=0; j<2; j++){
       H+=0.5*a[i][j]*b_contra[i][j];
+      H0+=0.5*A[i][j]*B_contra[i][j];
     }
   }
   T dH=H-H0;
@@ -338,7 +354,7 @@ PetscErrorCode OutputMonitor(TS ts,PetscInt it_number,PetscReal c_time,Vec U,voi
   ierr = IGADrawVecVTK(user->iga,U,filename);CHKERRQ(ierr);
   //std::cout << c_time << "\n";
   //
-  ierr = IGASetBoundaryValue(user->iga,1,0,1,-user->l*0.5*(c_time));CHKERRQ(ierr); //Y=t on \eta_2=0
+  //ierr = IGASetBoundaryValue(user->iga,1,0,1,-user->l*0.5*(c_time));CHKERRQ(ierr); //Y=t on \eta_2=0
   PetscFunctionReturn(0);
 }
 
@@ -351,8 +367,8 @@ int main(int argc, char *argv[]) {
   AppCtx user;
   user.l=1.0;
   user.kMean=1.0;
-  user.kGaussian=-0.5*user.kMean;
-  user.mu=0.01;
+  user.kGaussian=0*-0.5*user.kMean;
+  user.mu=1.00;
   user.epsilon=100*user.kMean/user.l;
   
   IGA iga;
@@ -360,8 +376,7 @@ int main(int argc, char *argv[]) {
   ierr = IGASetDof(iga,4);CHKERRQ(ierr); // dofs = {ux,uy,uz, lambda}
   ierr = IGASetDim(iga,2);CHKERRQ(ierr);
   ierr = IGASetGeometryDim(iga,3);CHKERRQ(ierr);
-  ierr = IGARead(iga,filename);CHKERRQ(ierr);  
-
+  //ierr = IGARead(iga,filename);CHKERRQ(ierr);  
   ierr = IGASetFromOptions(iga);CHKERRQ(ierr);
   ierr = IGASetUp(iga);CHKERRQ(ierr);
   user.iga = iga;
@@ -388,16 +403,17 @@ int main(int argc, char *argv[]) {
   
   //Dirichlet BC's u = 0, v = [0:1]
   ierr = IGASetBoundaryValue(iga,0,0,0,0.0);CHKERRQ(ierr); //X=0 on \eta_1=0
-  ierr = IGASetBoundaryValue(iga,0,0,2,0.0);CHKERRQ(ierr); //Z=0 on \eta_1=0
+  ierr = IGASetBoundaryValue(iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 on \eta_1=0
   ierr = IGASetBoundaryValue(iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 on \eta_1=1
-  ierr = IGASetBoundaryValue(iga,1,1,1,0.0);CHKERRQ(ierr); //Y=0 on \eta_2=1
+  ierr = IGASetBoundaryValue(iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 on \eta_1=1
+  ierr = IGASetBoundaryValue(iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 on \eta_1=1
   
   //Boundary form for Neumann BC's
   
   IGAForm form;
   ierr = IGAGetForm(iga,&form);CHKERRQ(ierr);
-  ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr);
-  ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr);
+  ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_FALSE);CHKERRQ(ierr);
+  ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_FALSE);CHKERRQ(ierr);
   ierr = IGAFormSetBoundaryForm (form,1,0,PETSC_FALSE);CHKERRQ(ierr);
   ierr = IGAFormSetBoundaryForm (form,1,1,PETSC_FALSE);CHKERRQ(ierr);
   
