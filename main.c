@@ -11,10 +11,12 @@
 #include <Sacado.hpp>
 typedef Sacado::Fad::DFad<double> doubleAD;
 
+//#define LagrangeMultiplierMethod
+
 typedef struct {
   IGA iga;
   PetscReal l;
-  PetscReal kMean, kGaussian, mu, epsilon;
+  PetscReal kMean, kGaussian, mu, epsilon, delta;
 } AppCtx;
 
 #undef  __FUNCT__
@@ -33,16 +35,22 @@ PetscErrorCode Function(IGAPoint p,
   PetscReal Mu=user->mu; //stabilzation parameter
   PetscReal Epsilon=user->epsilon;
   //
+  PetscReal CollarRadius=user->l;
   PetscReal CollarHeight=10*user->l;
-  //PetscReal CollarZ=1.015*CollarHeight; //Cap
-  PetscReal CollarZ=0.60*CollarHeight;  //Tube
-  //PetscReal CollarZ=0.05*CollarHeight;  //Base
-  PetscReal CollarDepth=0.005*CollarHeight;
-  PetscReal CollarForce=10.0;
+  PetscReal CollarZ=1.015*CollarHeight; //Cap
+  //PetscReal CollarZ=0.50*CollarHeight;  //Tube
+  //PetscReal CollarZ=0.025*CollarHeight;  //Base
+  PetscReal CollarDepth=0.0025*CollarHeight;
+  PetscReal CollarHelixHeight=3*CollarDepth;
+  PetscReal CollarForce=25.0;
     
   //normalization
   PetscReal kBar=K/K, kGaussianBar=KGaussian/K;
-  PetscReal muBar=Mu*(L*L)/K, epsilonBar=Epsilon*(L/K); 
+  PetscReal muBar=Mu*(L*L)/K, epsilonBar=Epsilon*(L/K);
+#ifndef LagrangeMultiplierMethod
+  PetscReal Lambda=user->delta; //penalty parameter for incompressibility
+  PetscReal lambdaBar=Lambda*(L*L)/K;
+#endif
   
   //instantaneous curvature
   double H0=0.0; 
@@ -61,13 +69,19 @@ PetscErrorCode Function(IGAPoint p,
 
   //get x, q
   T x[nen][3];
+#ifdef LagrangeMultiplierMethod
   T (*u)[3+1] = (T (*)[3+1])tempU;
   T q=0.0; //q is the Lagrange multiplier value at this point
+#else
+  T (*u)[3] = (T (*)[3])tempU;
+#endif
   for(unsigned int n=0; n<(unsigned int) nen; n++){
     for(unsigned int d=0; d<3; d++){
       x[n][d]= X[n][d]+ u[n][d];
     }
+#ifdef LagrangeMultiplierMethod
     q+=N[n]*u[n][3];
+#endif
   }
 
   //compute basis vectors, dxdR and dXdR, gradient of basis vectors, dxdr2, and co-variant metric tensors, a and A. 
@@ -215,7 +229,11 @@ PetscErrorCode Function(IGAPoint p,
   //For Helfrich energy formulation
   for (unsigned int i=0; i<2; i++){
     for (unsigned int j=0; j<2; j++){
+#ifdef LagrangeMultiplierMethod
       sigma_contra[i][j]=(L*L/K)*((q+ K*dH*dH - KGaussian*Kappa)*a_contra[i][j]-2*K*dH*b_contra[i][j]);
+#else
+      sigma_contra[i][j]=(L*L/K)*((Lambda*(J-1.0) + K*dH*dH - KGaussian*Kappa)*a_contra[i][j]-2*K*dH*b_contra[i][j]);
+#endif
       sigma_contra[i][j]+=(L*L/K)*(Mu/(J*J))*(A_contra[i][j]-0.5*I1*a_contra[i][j]); //stabilization term
       M_contra[i][j]=(L/K)*(K*dH + 2*KGaussian*H)*a_contra[i][j]-KGaussian*b_contra[i][j];
     }
@@ -247,17 +265,29 @@ PetscErrorCode Function(IGAPoint p,
 	    }
 	  }
 	}
-	if (std::abs(pCoords[1]-CollarZ)<=CollarDepth){ //axis aligned along Y-axis
+	//
+	bool isCollar=false;
+	//collar implementation
+	if (std::abs(pCoords[1]-CollarZ)<=CollarDepth) {isCollar=true;}
+	//helix implementation
+	/*
+	PetscReal cc=CollarHelixHeight/(2*3.1415);
+	PetscReal tt=(pCoords[1]-CollarZ)/cc;
+	if ((tt>=0) && (tt<=2*3.1415)){ 
+	  PetscReal xx=CollarRadius*std::cos(tt);
+	  PetscReal yy=CollarRadius*std::sin(tt);
+	  if (std::sqrt(std::pow(pCoords[0]-xx,2)+std::pow(pCoords[2]-yy,2))<=CollarDepth) {isCollar=true;}
+	}
+	*/
+	if (isCollar){ //axis aligned along Y-axis
 	  Ru_i+=((L*L*L)/K)*N[n]*(t*CollarForce)*(normal[i])*J;
 	}
-	R[n*4+i] = Ru_i; 
+	R[n*dof+i] = Ru_i; 
       }
-      if (std::abs(pCoords[1]-CollarZ)<=CollarDepth){
-	//std::cout << normal [0].val() << ", " << normal [1].val() << ", " << normal [2].val() << std::endl;
-      }
-      //Lagrange multiplier DOF
-      //J-1
-      R[n*4+3] = N[n]*(L*L/K)*(J-1.0); 
+#ifdef LagrangeMultiplierMethod
+      //Lagrange multiplier residual, J-1
+      R[n*dof+3] = N[n]*(L*L/K)*(J-1.0);
+#endif
     }
   }
   else{
@@ -271,9 +301,11 @@ PetscErrorCode Function(IGAPoint p,
 	  }
 	}
 	*/
-	R[n*4+i] = Ru_i; 
+	R[n*dof+i] = Ru_i; 
       }
-      R[n*4+3] = 0.0; 
+#ifdef LagrangeMultiplierMethod
+      R[n*dof+3] = 0.0;
+#endif
     }
   }
   return 0; 
@@ -290,7 +322,8 @@ PetscErrorCode Residual(IGAPoint p,
 {
   Function<PetscReal>(p, shift, V, t, U, t0, U0, R, ctx);
   /*
-  const PetscInt nen=p->nen, dof=3+1;
+  PetscInt nen, dof;
+  IGAPointGetSizes(p,0,&nen,&dof);
   std::vector<doubleAD> U_AD(nen*dof);
   for(int i=0; i<nen*dof; i++){
     U_AD[i]=U[i];
@@ -317,13 +350,9 @@ PetscErrorCode Jacobian(IGAPoint p,
 {
   //std::cout << "J";
   AppCtx *user = (AppCtx *)ctx;
-  const PetscInt nen=p->nen, dof=3+1;
-  //const PetscReal (*U2)[DIM] = (PetscReal (*)[DIM])U;
-  /*
-  if (dof*nen!=numVars) {
-    PetscPrintf(PETSC_COMM_WORLD,"\ndof*nen!=numVars.... Set numVars = %u\n",dof*nen); exit(-1);
-  }
-  */
+  PetscInt nen, dof;
+  IGAPointGetSizes(p,0,&nen,&dof);
+  //
   std::vector<doubleAD> U_AD(nen*dof);
   for(int i=0; i<nen*dof; i++){
     U_AD[i]=U[i];
@@ -386,10 +415,16 @@ int main(int argc, char *argv[]) {
   user.kGaussian=0*-0.5*user.kMean;
   user.mu=1.0;
   user.epsilon=100*user.kMean/user.l;
-  
+#ifndef LagrangeMultiplierMethod
+  user.delta=20.0;
+#endif
   IGA iga;
   ierr = IGACreate(PETSC_COMM_WORLD,&iga);CHKERRQ(ierr);
+#ifdef LagrangeMultiplierMethod
   ierr = IGASetDof(iga,4);CHKERRQ(ierr); // dofs = {ux,uy,uz, lambda}
+#else
+  ierr = IGASetDof(iga,3);CHKERRQ(ierr); // dofs = {ux,uy,uz}
+#endif
   ierr = IGASetDim(iga,2);CHKERRQ(ierr);
   ierr = IGASetGeometryDim(iga,3);CHKERRQ(ierr);
   //ierr = IGARead(iga,filename);CHKERRQ(ierr);  
