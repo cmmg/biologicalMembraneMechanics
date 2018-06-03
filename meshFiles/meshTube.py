@@ -7,7 +7,7 @@ from igakit.io import PetIGA
 from numpy import linspace
 
 #Geometry
-R=0.1;
+R=1.0;
 H=10*R;
 r=0.5*R;
 
@@ -17,9 +17,9 @@ C3=circle(r, (r+R,r), (Pi,3*Pi/2));
 C4=line((R+r,0), (R+2*r,0));
 C5 = join(C1, C2, 0);
 C6 = join(C5, C3, 0);
-C7 = join(C6, C4, 0);
+C7 = join(C6, C4, 0); 
 S = revolve(C7, (0,0), 1, angle=[0,2*Pi])
-
+ 
 #refine along X
 to_insertX1 = np.setdiff1d(linspace(0,1.0,9)[1:-1],S.knots[0]);
 S.refine(0,to_insertX1)
