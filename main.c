@@ -34,9 +34,11 @@ PetscErrorCode Function(IGAPoint p,
   PetscReal Epsilon=user->epsilon;
   //
   PetscReal CollarHeight=10*user->l;
-  PetscReal CollarZ=0.9*CollarHeight;
-  PetscReal CollarDepth=0.025*CollarHeight;
-  PetscReal CollarForce=1.0;
+  //PetscReal CollarZ=1.015*CollarHeight; //Cap
+  PetscReal CollarZ=0.60*CollarHeight;  //Tube
+  //PetscReal CollarZ=0.05*CollarHeight;  //Base
+  PetscReal CollarDepth=0.005*CollarHeight;
+  PetscReal CollarForce=10.0;
     
   //normalization
   PetscReal kBar=K/K, kGaussianBar=KGaussian/K;
@@ -444,7 +446,7 @@ int main(int argc, char *argv[]) {
   ierr = IGADrawVecVTK(iga,U,"mesh.vts");CHKERRQ(ierr);
   //
   TS ts;
-  PetscInt timeSteps=1000;
+  PetscInt timeSteps=100;
   ierr = IGACreateTS(iga,&ts);CHKERRQ(ierr);
   ierr = TSSetType(ts,TSBEULER);CHKERRQ(ierr);
   //ierr = TSSetMaxSteps(ts,timeSteps+1);CHKERRQ(ierr);
