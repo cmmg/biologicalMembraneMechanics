@@ -6,7 +6,7 @@ from math import pi as Pi
 from numpy import linspace
 
 #Read from mat file
-mat = scipy.io.loadmat('bspline40.mat')
+mat = scipy.io.loadmat('bsplineBase40.mat')
 
 order = np.array(mat['order'])
 order = order.tolist()[0][0];

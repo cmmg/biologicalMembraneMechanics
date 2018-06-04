@@ -30,3 +30,5 @@ results*
 configForce.o*
 stress_stretch.txt
 build
+simulations*
+L2Projection

@@ -11,9 +11,9 @@ PetscErrorCode System(IGAPoint p,PetscScalar *K,PetscScalar *F,void *ctx)
   PetscReal l=1.0;
   PetscReal CollarRadius=l;
   PetscReal CollarHeight=10*l;
-  PetscReal CollarZ=1.015*CollarHeight; //Cap
+  //PetscReal CollarZ=1.005*CollarHeight; //1.015*CollarHeight; //Cap
   //PetscReal CollarZ=0.50*CollarHeight;  //Tube
-  //PetscReal CollarZ=0.025*CollarHeight;  //Base
+  PetscReal CollarZ=0.035*CollarHeight;  //Base
   PetscReal CollarDepth=0.0025*CollarHeight;
   PetscReal CollarHelixHeight=2*CollarDepth;
   //
@@ -33,7 +33,9 @@ PetscErrorCode System(IGAPoint p,PetscScalar *K,PetscScalar *F,void *ctx)
       //
       bool isCollar=false;
       //collar implementation
-      if (std::abs(pCoords[1]-CollarZ)<=CollarDepth) {isCollar=true;}
+      if (std::abs(pCoords[1]-CollarZ)<=CollarDepth) {
+	isCollar=true;
+      }
       //helix implementation
       /*
       PetscReal cc=CollarHelixHeight/(2*3.1415);

@@ -11,7 +11,7 @@ R=1.0;
 H=10*R;
 r=0.5*R;
 
-C1=circle(R, (0,H), (Pi/2,0))
+C1=circle(R, (0,H), (0.95*Pi/2,0))
 #C2=line((R, H), (R, r));
 #C3=circle(r, (r+R,r), (Pi,3*Pi/2));
 #C4=line((R+r,0), (R+2*r,0));
@@ -31,7 +31,7 @@ S.refine(0,to_insertX1)
 #S.refine(0,to_insertX4)
 
 #refine along Y
-to_insertY = np.setdiff1d(linspace(0,1.0,21)[1:-1],S.knots[1]);
+to_insertY = np.setdiff1d(linspace(0,1.0,41)[1:-1],S.knots[1]);
 S.refine(1,to_insertY)
 
 #periodicity

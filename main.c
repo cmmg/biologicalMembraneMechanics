@@ -11,7 +11,7 @@
 #include <Sacado.hpp>
 typedef Sacado::Fad::DFad<double> doubleAD;
 
-//#define LagrangeMultiplierMethod
+#define LagrangeMultiplierMethod
 
 typedef struct {
   IGA iga;
@@ -37,12 +37,12 @@ PetscErrorCode Function(IGAPoint p,
   //
   PetscReal CollarRadius=user->l;
   PetscReal CollarHeight=10*user->l;
-  PetscReal CollarZ=1.015*CollarHeight; //Cap
+  //PetscReal CollarZ=1.005*CollarHeight; //Cap
   //PetscReal CollarZ=0.50*CollarHeight;  //Tube
-  //PetscReal CollarZ=0.025*CollarHeight;  //Base
+  PetscReal CollarZ=0.035*CollarHeight;  //Base
   PetscReal CollarDepth=0.0025*CollarHeight;
   PetscReal CollarHelixHeight=3*CollarDepth;
-  PetscReal CollarForce=25.0;
+  PetscReal CollarForce=50.0;
     
   //normalization
   PetscReal kBar=K/K, kGaussianBar=KGaussian/K;
@@ -413,10 +413,10 @@ int main(int argc, char *argv[]) {
   user.l=1.0;
   user.kMean=1.0;
   user.kGaussian=0*-0.5*user.kMean;
-  user.mu=1.0;
+  user.mu=10.0;
   user.epsilon=100*user.kMean/user.l;
 #ifndef LagrangeMultiplierMethod
-  user.delta=20.0;
+  user.delta=1000.0;
 #endif
   IGA iga;
   ierr = IGACreate(PETSC_COMM_WORLD,&iga);CHKERRQ(ierr);
@@ -453,11 +453,11 @@ int main(int argc, char *argv[]) {
   std::cout << std::endl;
   
   //Dirichlet BC's u = 0, v = [0:1]
-  ierr = IGASetBoundaryValue(iga,0,0,0,0.0);CHKERRQ(ierr); //X=0 on \eta_1=0
-  ierr = IGASetBoundaryValue(iga,0,0,2,0.0);CHKERRQ(ierr); //Y=0 on \eta_1=0
-  ierr = IGASetBoundaryValue(iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 on \eta_1=1
+  //ierr = IGASetBoundaryValue(iga,0,0,0,0.0);CHKERRQ(ierr); //X=0 on \eta_1=0
+  //ierr = IGASetBoundaryValue(iga,0,0,2,0.0);CHKERRQ(ierr); //Y=0 on \eta_1=0
+  ierr = IGASetBoundaryValue(iga,0,1,1,0.0);CHKERRQ(ierr); //Z=0 on \eta_1=1
   ierr = IGASetBoundaryValue(iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 on \eta_1=1
-  ierr = IGASetBoundaryValue(iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 on \eta_1=1
+  ierr = IGASetBoundaryValue(iga,0,1,2,0.0);CHKERRQ(ierr); //Y=0 on \eta_1=1
   
   //Boundary form for Neumann BC's
   IGAForm form;
@@ -481,7 +481,7 @@ int main(int argc, char *argv[]) {
   ierr = IGADrawVecVTK(iga,U,"mesh.vts");CHKERRQ(ierr);
   //
   TS ts;
-  PetscInt timeSteps=100;
+  PetscInt timeSteps=500;
   ierr = IGACreateTS(iga,&ts);CHKERRQ(ierr);
   ierr = TSSetType(ts,TSBEULER);CHKERRQ(ierr);
   //ierr = TSSetMaxSteps(ts,timeSteps+1);CHKERRQ(ierr);
