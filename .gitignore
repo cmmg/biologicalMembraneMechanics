@@ -2,6 +2,7 @@
 *.slo
 *.lo
 *.o
+*.pyc
 
 # Compiled Dynamic libraries
 *.so
@@ -32,3 +33,4 @@ stress_stretch.txt
 build
 simulations*
 L2Projection
+.DS_Store

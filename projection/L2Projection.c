@@ -12,9 +12,9 @@ PetscErrorCode System(IGAPoint p,PetscScalar *K,PetscScalar *F,void *ctx)
   PetscReal CollarRadius=l;
   PetscReal CollarHeight=10*l;
   //PetscReal CollarZ=1.005*CollarHeight; //1.015*CollarHeight; //Cap
-  //PetscReal CollarZ=0.50*CollarHeight;  //Tube
-  PetscReal CollarZ=0.035*CollarHeight;  //Base
-  PetscReal CollarDepth=0.0025*CollarHeight;
+  PetscReal CollarZ=0.10*CollarHeight;  //Tube
+  //PetscReal CollarZ=0.035*CollarHeight;  //Base
+  PetscReal CollarDepth=0.005*CollarHeight;
   PetscReal CollarHelixHeight=2*CollarDepth;
   //
   PetscReal pCoords[3];

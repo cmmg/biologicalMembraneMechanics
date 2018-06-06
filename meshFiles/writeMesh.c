@@ -6,14 +6,13 @@
 //extern "C" {
 #include "petiga.h"
 //}
-#include "fields.h"
 
 #define DIM 3
 #define DOF 3
 
 int main(int argc, char *argv[]) {
 
-  char           filename[PETSC_MAX_PATH_LEN] = "cylinder.dat";
+  char           filename[PETSC_MAX_PATH_LEN] = "mesh.dat";
   PetscErrorCode ierr;
   ierr = PetscInitialize(&argc,&argv,0,0);CHKERRQ(ierr);
 

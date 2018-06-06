@@ -1,6 +1,7 @@
 import sys, numpy as np
 from igakit.nurbs import NURBS
-from igakit.cad import circle, line, join, revolve
+#from igakit.cad import circle, line, join, revolve
+from cad2 import circle, line, join, revolve
 import scipy.io
 from math import pi as Pi
 from numpy import linspace

@@ -38,11 +38,11 @@ PetscErrorCode Function(IGAPoint p,
   PetscReal CollarRadius=user->l;
   PetscReal CollarHeight=10*user->l;
   //PetscReal CollarZ=1.005*CollarHeight; //Cap
-  //PetscReal CollarZ=0.50*CollarHeight;  //Tube
-  PetscReal CollarZ=0.035*CollarHeight;  //Base
-  PetscReal CollarDepth=0.0025*CollarHeight;
+  PetscReal CollarZ=0.10*CollarHeight;  //Tube
+  //PetscReal CollarZ=0.035*CollarHeight;  //Base
+  PetscReal CollarDepth=0.005*CollarHeight;
   PetscReal CollarHelixHeight=3*CollarDepth;
-  PetscReal CollarForce=50.0;
+  PetscReal CollarForce=0.0;
     
   //normalization
   PetscReal kBar=K/K, kGaussianBar=KGaussian/K;
@@ -235,7 +235,7 @@ PetscErrorCode Function(IGAPoint p,
       sigma_contra[i][j]=(L*L/K)*((Lambda*(J-1.0) + K*dH*dH - KGaussian*Kappa)*a_contra[i][j]-2*K*dH*b_contra[i][j]);
 #endif
       sigma_contra[i][j]+=(L*L/K)*(Mu/(J*J))*(A_contra[i][j]-0.5*I1*a_contra[i][j]); //stabilization term
-      M_contra[i][j]=(L/K)*(K*dH + 2*KGaussian*H)*a_contra[i][j]-KGaussian*b_contra[i][j];
+      M_contra[i][j]=(L/K)*((K*dH + 2*KGaussian*H)*a_contra[i][j]-KGaussian*b_contra[i][j]);
     }
   }
 
@@ -399,7 +399,7 @@ PetscErrorCode OutputMonitor(TS ts,PetscInt it_number,PetscReal c_time,Vec U,voi
   ierr = IGADrawVecVTK(user->iga,U,filename);CHKERRQ(ierr);
   //std::cout << c_time << "\n";
   //
-  //ierr = IGASetBoundaryValue(user->iga,1,0,1,-user->l*0.5*(c_time));CHKERRQ(ierr); //Y=t on \eta_2=0
+  ierr = IGASetBoundaryValue(user->iga,0,0,1,user->l*2.0*(c_time));CHKERRQ(ierr); //Y=t on \eta_2=0
   PetscFunctionReturn(0);
 }
 
@@ -453,8 +453,9 @@ int main(int argc, char *argv[]) {
   std::cout << std::endl;
   
   //Dirichlet BC's u = 0, v = [0:1]
-  //ierr = IGASetBoundaryValue(iga,0,0,0,0.0);CHKERRQ(ierr); //X=0 on \eta_1=0
-  //ierr = IGASetBoundaryValue(iga,0,0,2,0.0);CHKERRQ(ierr); //Y=0 on \eta_1=0
+  ierr = IGASetBoundaryValue(iga,0,0,0,0.0);CHKERRQ(ierr); //X=0 on \eta_1=0
+  ierr = IGASetBoundaryValue(iga,0,0,2,0.0);CHKERRQ(ierr); //Y=0 on \eta_1=0
+  ierr = IGASetBoundaryValue(iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 on \eta_1=0
   ierr = IGASetBoundaryValue(iga,0,1,1,0.0);CHKERRQ(ierr); //Z=0 on \eta_1=1
   ierr = IGASetBoundaryValue(iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 on \eta_1=1
   ierr = IGASetBoundaryValue(iga,0,1,2,0.0);CHKERRQ(ierr); //Y=0 on \eta_1=1
@@ -481,7 +482,7 @@ int main(int argc, char *argv[]) {
   ierr = IGADrawVecVTK(iga,U,"mesh.vts");CHKERRQ(ierr);
   //
   TS ts;
-  PetscInt timeSteps=500;
+  PetscInt timeSteps=100;
   ierr = IGACreateTS(iga,&ts);CHKERRQ(ierr);
   ierr = TSSetType(ts,TSBEULER);CHKERRQ(ierr);
   //ierr = TSSetMaxSteps(ts,timeSteps+1);CHKERRQ(ierr);
