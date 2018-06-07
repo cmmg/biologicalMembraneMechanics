@@ -48,7 +48,8 @@ S = revolve(Curve, (0,0), 1)
 #to_insertY = np.setdiff1d(linspace(0,1.0,21)[1:-1],S.knots[1]);
 S.elevate(0,1);
 S.refine(1,kX);
-S.unclamp(1);
+S.insert(1,0.5,1)
+S.unclamp(1, continuity=1);
 
 from igakit.io import PetIGA
 PetIGA().write("mesh.dat", S, nsd=3)

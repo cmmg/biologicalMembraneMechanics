@@ -38,11 +38,11 @@ PetscErrorCode Function(IGAPoint p,
   PetscReal CollarRadius=user->l;
   PetscReal CollarHeight=10*user->l;
   //PetscReal CollarZ=1.005*CollarHeight; //Cap
-  PetscReal CollarZ=0.10*CollarHeight;  //Tube
+  PetscReal CollarZ=0.50*CollarHeight;  //Tube
   //PetscReal CollarZ=0.035*CollarHeight;  //Base
-  PetscReal CollarDepth=0.005*CollarHeight;
+  PetscReal CollarDepth=0.01*CollarHeight;
   PetscReal CollarHelixHeight=3*CollarDepth;
-  PetscReal CollarForce=0.0;
+  PetscReal CollarForce=1.0;
     
   //normalization
   PetscReal kBar=K/K, kGaussianBar=KGaussian/K;
@@ -243,9 +243,7 @@ PetscErrorCode Function(IGAPoint p,
   PetscReal pCoords[3];
   IGAPointFormGeomMap(p,pCoords);
   //PetscReal theta=t*3.14159/6.0;
-  //if (pCoords[0]>0.5*(3*user->l)){theta*=-1;}
-  //PetscReal nValue[3]={std::sin(theta), 0.0, std::cos(theta)};
-    
+  //
   bool surfaceFlag=p->atboundary;
   PetscReal *boundaryNormal = p->normal;
   //Residual
@@ -294,13 +292,22 @@ PetscErrorCode Function(IGAPoint p,
     for (unsigned int n=0; n<(unsigned int)nen; n++) {
       for (unsigned int i=0; i<3; i++){
 	T Ru_i=0.0;
-	/*
-	  for (unsigned int j=0; j<2; j++){
-	  for (unsigned int d=0; d<3; d++){
-	    //Ru_i+=epsilonBar*std::abs(nValue[0])*(N1[n][j]*normal[i]*nValue[d]*dxdR_contra[d][j]); //change of curve length not currently accounted as the corresponding Jacobian not yet implemented.
+	//Rotational constraints 
+	for (unsigned int j=0; j<2; j++){
+	  //change of curve length not currently accounted as the corresponding Jacobian not yet implemented.
+	  //Ru_i+=epsilonBar*std::abs(nValue[0])*(N1[n][j]*normal[i]*nValue[d]*dxdR_contra[d][j]);
+	  if (std::abs(pCoords[0])<1.0e-8){
+	    if (std::abs(normal[0].val())>1.0e-2){
+	      //std::cout << normal[0].val() << ", ";
+	    }
+	    PetscReal nValue[3]={0.0, 0.0, -1.0};  //normal along -Z for \eta_2=1
+	    Ru_i+=-epsilonBar*normal[0]*normal[0]*(N1[n][j]*dxdR_contra[i][j]); 
 	  }
+	  else{
+	    PetscReal nValue[3]={1.0, 0.0, 0.0}; //normal along +X for \eta_2=0
+	    Ru_i+=-epsilonBar*normal[2]*normal[2]*(N1[n][j]*dxdR_contra[i][j]);
+	  }  
 	}
-	*/
 	R[n*dof+i] = Ru_i; 
       }
 #ifdef LagrangeMultiplierMethod
@@ -320,8 +327,8 @@ PetscErrorCode Residual(IGAPoint p,
                         PetscReal t0,const PetscScalar *U0, 
 			PetscScalar *R,void *ctx)
 {
-  Function<PetscReal>(p, shift, V, t, U, t0, U0, R, ctx);
-  /*
+  //Function<PetscReal>(p, shift, V, t, U, t0, U0, R, ctx);
+  
   PetscInt nen, dof;
   IGAPointGetSizes(p,0,&nen,&dof);
   std::vector<doubleAD> U_AD(nen*dof);
@@ -336,7 +343,7 @@ PetscErrorCode Residual(IGAPoint p,
       R[n1*dof+d1]= tempR[n1*dof+d1].val();
     }
   }
-  */
+  
   return 0;
 }
 
@@ -399,7 +406,7 @@ PetscErrorCode OutputMonitor(TS ts,PetscInt it_number,PetscReal c_time,Vec U,voi
   ierr = IGADrawVecVTK(user->iga,U,filename);CHKERRQ(ierr);
   //std::cout << c_time << "\n";
   //
-  ierr = IGASetBoundaryValue(user->iga,0,0,1,user->l*2.0*(c_time));CHKERRQ(ierr); //Y=t on \eta_2=0
+  //ierr = IGASetBoundaryValue(user->iga,0,0,1,user->l*2.0*(c_time));CHKERRQ(ierr); //Y=t on \eta_2=0
   PetscFunctionReturn(0);
 }
 
@@ -413,8 +420,8 @@ int main(int argc, char *argv[]) {
   user.l=1.0;
   user.kMean=1.0;
   user.kGaussian=0*-0.5*user.kMean;
-  user.mu=10.0;
-  user.epsilon=100*user.kMean/user.l;
+  user.mu=0.1;
+  user.epsilon=1*user.kMean/user.l;
 #ifndef LagrangeMultiplierMethod
   user.delta=1000.0;
 #endif
@@ -453,20 +460,26 @@ int main(int argc, char *argv[]) {
   std::cout << std::endl;
   
   //Dirichlet BC's u = 0, v = [0:1]
-  ierr = IGASetBoundaryValue(iga,0,0,0,0.0);CHKERRQ(ierr); //X=0 on \eta_1=0
-  ierr = IGASetBoundaryValue(iga,0,0,2,0.0);CHKERRQ(ierr); //Y=0 on \eta_1=0
-  ierr = IGASetBoundaryValue(iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 on \eta_1=0
-  ierr = IGASetBoundaryValue(iga,0,1,1,0.0);CHKERRQ(ierr); //Z=0 on \eta_1=1
-  ierr = IGASetBoundaryValue(iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 on \eta_1=1
-  ierr = IGASetBoundaryValue(iga,0,1,2,0.0);CHKERRQ(ierr); //Y=0 on \eta_1=1
+  //ierr = IGASetBoundaryValue(iga,1,0,0,0.0);CHKERRQ(ierr); //X=0 on \eta_1=0
+  //ierr = IGASetBoundaryValue(iga,1,0,2,0.0);CHKERRQ(ierr); //Y=0 on \eta_1=0
+  //ierr = IGASetBoundaryValue(iga,1,1,0,0.0);CHKERRQ(ierr); //X=0 on \eta_1=0
+  //ierr = IGASetBoundaryValue(iga,1,1,2,0.0);CHKERRQ(ierr); //Y=0 on \eta_1=0
+  ierr = IGASetBoundaryValue(iga,0,0,0,0.0);CHKERRQ(ierr); 
+  ierr = IGASetBoundaryValue(iga,0,0,2,0.0);CHKERRQ(ierr); 
+  ierr = IGASetBoundaryValue(iga,0,1,1,0.0);CHKERRQ(ierr); 
+  ierr = IGASetBoundaryValue(iga,0,1,0,0.0);CHKERRQ(ierr); 
+  ierr = IGASetBoundaryValue(iga,0,1,2,0.0);CHKERRQ(ierr); 
+  //SYMM BC's
+  ierr = IGASetBoundaryValue(iga,1,0,2,0.0);CHKERRQ(ierr);
+  ierr = IGASetBoundaryValue(iga,1,1,0,0.0);CHKERRQ(ierr);
   
   //Boundary form for Neumann BC's
   IGAForm form;
   ierr = IGAGetForm(iga,&form);CHKERRQ(ierr);
   ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_FALSE);CHKERRQ(ierr);
   ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_FALSE);CHKERRQ(ierr);
-  ierr = IGAFormSetBoundaryForm (form,1,0,PETSC_FALSE);CHKERRQ(ierr);
-  ierr = IGAFormSetBoundaryForm (form,1,1,PETSC_FALSE);CHKERRQ(ierr);
+  ierr = IGAFormSetBoundaryForm (form,1,0,PETSC_TRUE);CHKERRQ(ierr);
+  ierr = IGAFormSetBoundaryForm (form,1,1,PETSC_TRUE);CHKERRQ(ierr);
   
   // // //
   Vec U,U0;
