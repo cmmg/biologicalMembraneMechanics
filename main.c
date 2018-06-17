@@ -19,6 +19,7 @@ typedef struct {
   PetscReal kMean, kGaussian, mu, epsilon, delta;
   PetscReal c_time;
   Vec x;
+  bool projectBC;
 } AppCtx;
 
 #undef  __FUNCT__
@@ -250,49 +251,59 @@ PetscErrorCode Function(IGAPoint p,
   PetscReal *boundaryNormal = p->normal;
 
   //
+  /*
   if ((pCoords[1]>4.0) &&(pCoords[1]<6.0)){
     if ((std::abs(pCoords[0]-normal[0].val())>1.0e-1) || (std::abs(pCoords[2]-normal[2].val())>1.0e-1)){
       //std::cout << pCoords[0] << ", " << pCoords[2] << ", " << normal[0].val() << ", " << normal[2].val() << std::endl;
     }
-  }
+    }*/
+  
   //Residual
   if (!surfaceFlag) {
     for (unsigned int n=0; n<(unsigned int)nen; n++) {
       //displacement DOFs
-      for (unsigned int i=0; i<3; i++){
-	T Ru_i=0.0;
-	for (unsigned int j=0; j<2; j++){
-	  for (unsigned int k=0; k<2; k++){
-	    //sigma*grad(Na)*dxdR*J
-	    Ru_i += sigma_contra[j][k]*N1[n][j]*dxdR[i][k]*J;
-	    //M*(hess(Na)-Gamma*grad(Na))*n*J
-	    Ru_i += M_contra[j][k]*(N2[n][j][k])*normal[i]*J;
-	    for (unsigned int l=0; l<2; l++){
-	      Ru_i += -M_contra[j][k]*(Gamma[l][j][k]*N1[n][l])*normal[i]*J;
-	    }
-	  }
-	}
-	//
-	bool isCollar=false;
-	//collar implementation
-	if (std::abs(pCoords[1]-CollarZ)<=CollarDepth) {isCollar=true;}
-	//helix implementation
-	/*
-	PetscReal cc=CollarHelixHeight/(2*3.1415);
-	PetscReal tt=(pCoords[1]-CollarZ)/cc;
-	if ((tt>=0) && (tt<=2*3.1415)){ 
-	  PetscReal xx=CollarRadius*std::cos(tt);
-	  PetscReal yy=CollarRadius*std::sin(tt);
-	  if (std::sqrt(std::pow(pCoords[0]-xx,2)+std::pow(pCoords[2]-yy,2))<=CollarDepth) {isCollar=true;}
-	}
-	*/
-	if (isCollar){ //axis aligned along Y-axis
-	  Ru_i+=((L*L*L)/K)*N[n]*(t*CollarForce)*(normal[i])*J;
-	}
-	R[n*dof+i] = Ru_i; 
-      }
+       if (!user->projectBC){
+	 R[n*dof+0]=dH.val();
+	 R[n*dof+1]=dH.val();
+	 R[n*dof+2]=dH.val();
+	 R[n*dof+3]=dH.val();
+       }
+       else{
+	 for (unsigned int i=0; i<3; i++){
+	   T Ru_i=0.0;
+	   for (unsigned int j=0; j<2; j++){
+	     for (unsigned int k=0; k<2; k++){
+	       //sigma*grad(Na)*dxdR*J
+	       Ru_i += sigma_contra[j][k]*N1[n][j]*dxdR[i][k]*J;
+	       //M*(hess(Na)-Gamma*grad(Na))*n*J
+	       Ru_i += M_contra[j][k]*(N2[n][j][k])*normal[i]*J;
+	       for (unsigned int l=0; l<2; l++){
+		 Ru_i += -M_contra[j][k]*(Gamma[l][j][k]*N1[n][l])*normal[i]*J;
+	       }
+	     }
+	   }
+	   //
+	   bool isCollar=false;
+	   //collar implementation
+	   if (std::abs(pCoords[1]-CollarZ)<=CollarDepth) {isCollar=true;}
+	   //helix implementation
+	   /*
+	     PetscReal cc=CollarHelixHeight/(2*3.1415);
+	     PetscReal tt=(pCoords[1]-CollarZ)/cc;
+	     if ((tt>=0) && (tt<=2*3.1415)){ 
+	     PetscReal xx=CollarRadius*std::cos(tt);
+	     PetscReal yy=CollarRadius*std::sin(tt);
+	     if (std::sqrt(std::pow(pCoords[0]-xx,2)+std::pow(pCoords[2]-yy,2))<=CollarDepth) {isCollar=true;}
+	     }
+	   */
+	   if (isCollar){ //axis aligned along Y-axis
+	     Ru_i+=((L*L*L)/K)*N[n]*(t*CollarForce)*(normal[i])*J;
+	   }
+	   R[n*dof+i] = Ru_i; 
+	 }
+       }
 #ifdef LagrangeMultiplierMethod
-      //Lagrange multiplier residual, J-1
+       //Lagrange multiplier residual, J-1
       R[n*dof+3] = N[n]*(L*L/K)*(J-1.0);
 #endif
     }
@@ -306,9 +317,6 @@ PetscErrorCode Function(IGAPoint p,
 	  //change of curve length not currently accounted as the corresponding Jacobian not yet implemented.
 	  //Ru_i+=epsilonBar*std::abs(nValue[0])*(N1[n][j]*normal[i]*nValue[d]*dxdR_contra[d][j]);
 	  if (std::abs(pCoords[0])<1.0e-8){
-	    if (std::abs(normal[0].val())>1.0e-2){
-	      //std::cout << normal[0].val() << ", ";
-	    }
 	    PetscReal nValue[3]={0.0, 0.0, -1.0};  //normal along -Z for \eta_2=1
 	    Ru_i+=-epsilonBar*normal[0]*normal[0]*(N1[n][j]*dxdR_contra[i][j]); 
 	  }
@@ -417,22 +425,27 @@ PetscErrorCode FunctionL2(IGAPoint p, const PetscScalar *U, PetscScalar *R, void
   if (x[1]>(1*user->l)){ uDirichletVal=0.0;}//for top surface
   //std::cout << "(," << uDirichletVal << ", " << x[1] << "), ";
 
-  //store L2 projection residual
-  const PetscReal (*N) = (const PetscReal (*)) p->shape[0];;  
-  for(int n1=0; n1<nen; n1++){
-    for(int d1=0; d1<dof; d1++){
-      PetscReal val=0.0;
-      switch (d1) {
-      case 0:
-	val=uDirichletVal*n[0]; break;
-      case 1:
-	val=0.0; break;
-      case 2:
-	val=uDirichletVal*n[2]; break;
-      case 3:
-	val=0.0; break;
+  if (!user->projectBC){
+    Residual(p,0.0,0,0.0,U,0.0,0,R,mctx);
+  }
+  else{
+    //store L2 projection residual
+    const PetscReal (*N) = (const PetscReal (*)) p->shape[0];;  
+    for(int n1=0; n1<nen; n1++){
+      for(int d1=0; d1<dof; d1++){
+	PetscReal val=0.0;
+	switch (d1) {
+	case 0:
+	  val=uDirichletVal*n[0]; break;
+	case 1:
+	  val=0.0; break;
+	case 2:
+	  val=uDirichletVal*n[2]; break;
+	case 3:
+	  val=0.0; break;
+	}
+	R[n1*dof+d1] = N[n1]*val;
       }
-      R[n1*dof+d1] = N[n1]*val;
     }
   }
   return 0;
@@ -470,7 +483,7 @@ PetscErrorCode JacobianL2(IGAPoint p, const PetscScalar *U, PetscScalar *K, void
 
 #undef __FUNCT__
 #define __FUNCT__ "ProjectL2"
-PetscErrorCode ProjectL2(IGA iga, PetscInt step, Vec x, void *mctx)
+PetscErrorCode ProjectL2(IGA iga, PetscInt step, Vec U, void *mctx)
 {
   PetscFunctionBegin;
   PetscErrorCode ierr;
@@ -484,37 +497,44 @@ PetscErrorCode ProjectL2(IGA iga, PetscInt step, Vec x, void *mctx)
       ierr =   IGAFormClearBoundary(form,dir,side);
     }
   }
-    
+  char           filename[256];
+  sprintf(filename,"./project%d.vts",step);
+  user->projectBC=false;
+  Vec x2;
+  ierr = IGACreateVec(user->iga,&x2);CHKERRQ(ierr);
+  ierr = VecSet(x2,0.0);CHKERRQ(ierr);
+  ierr = IGASetFormFunction(user->iga,FunctionL2,user);CHKERRQ(ierr);
+  ierr = IGAComputeFunction(user->iga,U,x2);CHKERRQ(ierr);
+  ierr = IGADrawVecVTK(user->iga,x2,filename);CHKERRQ(ierr);
+  
   /* Solve L2 projection problem */
   Mat A;
   Vec b;
+  ierr = VecSet(user->x,0.0);CHKERRQ(ierr);
   ierr = IGACreateMat(user->iga,&A);CHKERRQ(ierr);
   ierr = IGACreateVec(user->iga,&b);CHKERRQ(ierr);
   ierr = MatSetOption(A,MAT_SYMMETRIC,PETSC_TRUE);CHKERRQ(ierr);
-  //ierr = MatSetOption(A,MAT_SPD,PETSC_TRUE);CHKERRQ(ierr);
   //
-  ierr = IGASetFormFunction(user->iga,FunctionL2,user);CHKERRQ(ierr);
+  user->projectBC=true;
+  //ierr = IGASetFormFunction(user->iga,FunctionL2,user);CHKERRQ(ierr);
   ierr = IGASetFormJacobian(user->iga,JacobianL2,user);CHKERRQ(ierr);
-  ierr = IGAComputeFunction(user->iga,x,b);CHKERRQ(ierr);
-  ierr = IGAComputeJacobian(user->iga,x,A);CHKERRQ(ierr);
+  ierr = IGAComputeFunction(user->iga,user->x,b);CHKERRQ(ierr);
+  ierr = IGAComputeJacobian(user->iga,user->x,A);CHKERRQ(ierr);
   //
-  ierr = VecSet(x,0.0);CHKERRQ(ierr);
+  ierr = VecSet(user->x,0.0);CHKERRQ(ierr);
   //Solver
   {
     KSP ksp;
     ierr = IGACreateKSP(user->iga,&ksp);CHKERRQ(ierr);
     ierr = KSPSetOperators(ksp,A,A);CHKERRQ(ierr);
     ierr = KSPSetFromOptions(ksp);CHKERRQ(ierr);
-    ierr = KSPSolve(ksp,b,x);CHKERRQ(ierr);
+    ierr = KSPSolve(ksp,b,user->x);CHKERRQ(ierr);
     ierr = KSPDestroy(&ksp);CHKERRQ(ierr);
   }
   //
   //PetscReal xVal;
   //VecNorm(user->x,NORM_INFINITY,&xVal);
   //std::cout << "xVal: " << xVal << "\n";
-  char           filename[256];
-  sprintf(filename,"./vecU%d.vts",step);
-  ierr = IGADrawVecVTK(user->iga,user->x,filename);CHKERRQ(ierr);
   //
   ierr = IGASetBoundaryValue(user->iga,0,0,0,0.0);CHKERRQ(ierr); 
   ierr = IGASetBoundaryValue(user->iga,0,0,2,0.0);CHKERRQ(ierr);
@@ -523,7 +543,10 @@ PetscErrorCode ProjectL2(IGA iga, PetscInt step, Vec x, void *mctx)
   ierr = IGASetBoundaryValue(user->iga,0,1,1,0.0);CHKERRQ(ierr); 
   ierr = IGASetBoundaryValue(user->iga,0,1,2,/*dummy*/0.0);CHKERRQ(ierr);
   ierr = IGASetFixTable(user->iga,user->x);CHKERRQ(ierr);    /* Set vector to read BCs from */
-  
+  //
+  ierr = VecDestroy(&x2);CHKERRQ(ierr);
+  ierr = VecDestroy(&b);CHKERRQ(ierr);
+  ierr = MatDestroy(&A);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -555,8 +578,7 @@ PetscErrorCode OutputMonitor(TS ts,PetscInt it_number,PetscReal c_time,Vec U,voi
   //
   ierr = IGASetFixTable(user->iga,NULL);CHKERRQ(ierr); /* Clear vector to read BCs from */
   user->c_time=c_time;
-  ierr = VecSet(user->x,0.0);CHKERRQ(ierr);
-  ProjectL2(user->iga, it_number, user->x, mctx);
+  ProjectL2(user->iga, it_number, U, mctx);
   //
   //ierr = IGASetBoundaryValue(user->iga,0,0,2,user->l*(c_time));CHKERRQ(ierr); //Y=t on \eta_2=0
   PetscFunctionReturn(0);
