@@ -14,7 +14,7 @@ C = circle();
 L=linspace(0,Pi,numPointsX)[1:-1];
 L=np.append(L.tolist(),(L+Pi).tolist());
 for t in L:
-    print t;
+    print t*(180/Pi);
     xR=math.cos(t); yR=math.sin(t);
     for i in linspace(0,1.0,10001):
         x=C([i])[0][0]; y=C([i])[0][1];
@@ -27,7 +27,7 @@ print "Num knots:", len(kX);
 print kX;
 
 #Read from mat file
-mat = scipy.io.loadmat('bsplineTube20.mat')
+mat = scipy.io.loadmat('bsplineTube.mat')
 
 order = np.array(mat['order'])
 order = order.tolist()[0][0];
@@ -47,9 +47,13 @@ S = revolve(Curve, (0,0), 1)
 #refine along Y
 #to_insertY = np.setdiff1d(linspace(0,1.0,21)[1:-1],S.knots[1]);
 S.elevate(0,1);
+S.elevate(1,1);
 S.refine(1,kX);
-S.insert(1,0.5,1)
-S.unclamp(1, continuity=1);
+#S.refine(1,kX);
+S.unclamp(1, continuity=2);
+#S.insert(1,0.5,1)
+#S.rotate(1,0.5*Pi)
+
 
 from igakit.io import PetIGA
 PetIGA().write("mesh.dat", S, nsd=3)

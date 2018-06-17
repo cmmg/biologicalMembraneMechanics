@@ -38,11 +38,11 @@ PetscErrorCode Function(IGAPoint p,
   PetscReal CollarRadius=user->l;
   PetscReal CollarHeight=10*user->l;
   //PetscReal CollarZ=1.005*CollarHeight; //Cap
-  PetscReal CollarZ=0.50*CollarHeight;  //Tube
-  //PetscReal CollarZ=0.035*CollarHeight;  //Base
-  PetscReal CollarDepth=0.01*CollarHeight;
+  //PetscReal CollarZ=0.5*CollarHeight;  //Tube
+  PetscReal CollarZ=0.035*CollarHeight;  //Base
+  PetscReal CollarDepth=0.02*CollarHeight;
   PetscReal CollarHelixHeight=3*CollarDepth;
-  PetscReal CollarForce=1.0;
+  PetscReal CollarForce=0.0;
     
   //normalization
   PetscReal kBar=K/K, kGaussianBar=KGaussian/K;
@@ -246,6 +246,13 @@ PetscErrorCode Function(IGAPoint p,
   //
   bool surfaceFlag=p->atboundary;
   PetscReal *boundaryNormal = p->normal;
+
+  //
+  if ((pCoords[1]>4.0) &&(pCoords[1]<6.0)){
+    if ((std::abs(pCoords[0]-normal[0].val())>1.0e-1) || (std::abs(pCoords[2]-normal[2].val())>1.0e-1)){
+      //std::cout << pCoords[0] << ", " << pCoords[2] << ", " << normal[0].val() << ", " << normal[2].val() << std::endl;
+    }
+  }
   //Residual
   if (!surfaceFlag) {
     for (unsigned int n=0; n<(unsigned int)nen; n++) {
@@ -406,7 +413,7 @@ PetscErrorCode OutputMonitor(TS ts,PetscInt it_number,PetscReal c_time,Vec U,voi
   ierr = IGADrawVecVTK(user->iga,U,filename);CHKERRQ(ierr);
   //std::cout << c_time << "\n";
   //
-  //ierr = IGASetBoundaryValue(user->iga,0,0,1,user->l*2.0*(c_time));CHKERRQ(ierr); //Y=t on \eta_2=0
+  ierr = IGASetBoundaryValue(user->iga,0,0,2,user->l*(c_time));CHKERRQ(ierr); //Y=t on \eta_2=0
   PetscFunctionReturn(0);
 }
 
@@ -421,7 +428,7 @@ int main(int argc, char *argv[]) {
   user.kMean=1.0;
   user.kGaussian=0*-0.5*user.kMean;
   user.mu=0.1;
-  user.epsilon=1*user.kMean/user.l;
+  user.epsilon=0*user.kMean/user.l;
 #ifndef LagrangeMultiplierMethod
   user.delta=1000.0;
 #endif
@@ -434,7 +441,8 @@ int main(int argc, char *argv[]) {
 #endif
   ierr = IGASetDim(iga,2);CHKERRQ(ierr);
   ierr = IGASetGeometryDim(iga,3);CHKERRQ(ierr);
-  //ierr = IGARead(iga,filename);CHKERRQ(ierr);  
+  ierr = IGAAxisSetPeriodic(iga->axis[1],PETSC_TRUE);CHKERRQ(ierr);
+  ierr = IGARead(iga,filename);CHKERRQ(ierr);
   ierr = IGASetFromOptions(iga);CHKERRQ(ierr);
   ierr = IGASetUp(iga);CHKERRQ(ierr);
   user.iga = iga;
@@ -464,22 +472,24 @@ int main(int argc, char *argv[]) {
   //ierr = IGASetBoundaryValue(iga,1,0,2,0.0);CHKERRQ(ierr); //Y=0 on \eta_1=0
   //ierr = IGASetBoundaryValue(iga,1,1,0,0.0);CHKERRQ(ierr); //X=0 on \eta_1=0
   //ierr = IGASetBoundaryValue(iga,1,1,2,0.0);CHKERRQ(ierr); //Y=0 on \eta_1=0
-  ierr = IGASetBoundaryValue(iga,0,0,0,0.0);CHKERRQ(ierr); 
-  ierr = IGASetBoundaryValue(iga,0,0,2,0.0);CHKERRQ(ierr); 
+  //ierr = IGASetBoundaryValue(iga,0,0,0,0.0);CHKERRQ(ierr); 
+  //ierr = IGASetBoundaryValue(iga,0,0,2,0.0);CHKERRQ(ierr);
+  //ierr = IGASetBoundaryValue(iga,1,0,0,0.0);CHKERRQ(ierr);
+  //ierr = IGASetBoundaryValue(iga,0,0,1,0.0);CHKERRQ(ierr); 
   ierr = IGASetBoundaryValue(iga,0,1,1,0.0);CHKERRQ(ierr); 
   ierr = IGASetBoundaryValue(iga,0,1,0,0.0);CHKERRQ(ierr); 
   ierr = IGASetBoundaryValue(iga,0,1,2,0.0);CHKERRQ(ierr); 
   //SYMM BC's
-  ierr = IGASetBoundaryValue(iga,1,0,2,0.0);CHKERRQ(ierr);
-  ierr = IGASetBoundaryValue(iga,1,1,0,0.0);CHKERRQ(ierr);
+  //ierr = IGASetBoundaryValue(iga,1,0,2,0.0);CHKERRQ(ierr);
+  //ierr = IGASetBoundaryValue(iga,1,1,0,0.0);CHKERRQ(ierr);
   
   //Boundary form for Neumann BC's
   IGAForm form;
   ierr = IGAGetForm(iga,&form);CHKERRQ(ierr);
   ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_FALSE);CHKERRQ(ierr);
   ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_FALSE);CHKERRQ(ierr);
-  ierr = IGAFormSetBoundaryForm (form,1,0,PETSC_TRUE);CHKERRQ(ierr);
-  ierr = IGAFormSetBoundaryForm (form,1,1,PETSC_TRUE);CHKERRQ(ierr);
+  ierr = IGAFormSetBoundaryForm (form,1,0,PETSC_FALSE);CHKERRQ(ierr);
+  ierr = IGAFormSetBoundaryForm (form,1,1,PETSC_FALSE);CHKERRQ(ierr);
   
   // // //
   Vec U,U0;
