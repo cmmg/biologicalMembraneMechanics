@@ -47,7 +47,7 @@ S = revolve(Curve, (0,0), 1)
 #refine along Y
 #to_insertY = np.setdiff1d(linspace(0,1.0,21)[1:-1],S.knots[1]);
 S.elevate(0,1);
-S.elevate(1,1);
+#S.elevate(1,1);
 S.refine(1,kX);
 #S.refine(1,kX);
 S.unclamp(1, continuity=2);
