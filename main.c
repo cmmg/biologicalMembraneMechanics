@@ -222,7 +222,7 @@ PetscErrorCode Function(IGAPoint p,
     }
   }
   T dH=H-H0;
-  //std::cout << dH.val() << ", ";
+  //std::cout << H.val() << ", ";
   
   //compute Gaussian curvature, Kappa
   T Kappa=det_b/det_a;
@@ -263,10 +263,10 @@ PetscErrorCode Function(IGAPoint p,
     for (unsigned int n=0; n<(unsigned int)nen; n++) {
       //displacement DOFs
        if (!user->projectBC){
-	 R[n*dof+0]=dH.val();
-	 R[n*dof+1]=dH.val();
-	 R[n*dof+2]=dH.val();
-	 R[n*dof+3]=dH.val();
+	 //R[n*dof+0]= N[n]*H.val(); //b_contra[0][0].val();
+	 //R[n*dof+1]= N[n]*Kappa.val(); //b_contra[0][1].val();
+	 //R[n*dof+2]= N[n]*N1[n][1]; //b_contra[1][0].val();
+	 //R[n*dof+3]= N[n]*N2[n][1][1]; //b_contra[1][1].val();
        }
        else{
 	 for (unsigned int i=0; i<3; i++){
@@ -301,11 +301,11 @@ PetscErrorCode Function(IGAPoint p,
 	   }
 	   R[n*dof+i] = Ru_i; 
 	 }
-       }
 #ifdef LagrangeMultiplierMethod
        //Lagrange multiplier residual, J-1
       R[n*dof+3] = N[n]*(L*L/K)*(J-1.0);
 #endif
+       }
     }
   }
   else{
@@ -344,8 +344,8 @@ PetscErrorCode Residual(IGAPoint p,
                         PetscReal t0,const PetscScalar *U0, 
 			PetscScalar *R,void *ctx)
 {
-  //Function<PetscReal>(p, shift, V, t, U, t0, U0, R, ctx);
-  
+  Function<PetscReal>(p, shift, V, t, U, t0, U0, R, ctx);
+  /*
   PetscInt nen, dof;
   IGAPointGetSizes(p,0,&nen,&dof);
   std::vector<doubleAD> U_AD(nen*dof);
@@ -360,7 +360,7 @@ PetscErrorCode Residual(IGAPoint p,
       R[n1*dof+d1]= tempR[n1*dof+d1].val();
     }
   }
-  
+  */
   return 0;
 }
 
@@ -421,7 +421,7 @@ PetscErrorCode FunctionL2(IGAPoint p, const PetscScalar *U, PetscScalar *R, void
     n[0]=n[1]=n[2]=0.0;
   }
 	
-  PetscReal uDirichletVal=-0.1*user->l*user->c_time;  
+  PetscReal uDirichletVal=-1.0*user->l*user->c_time;  
   if (x[1]>(1*user->l)){ uDirichletVal=0.0;}//for top surface
   //std::cout << "(," << uDirichletVal << ", " << x[1] << "), ";
 
@@ -442,7 +442,7 @@ PetscErrorCode FunctionL2(IGAPoint p, const PetscScalar *U, PetscScalar *R, void
 	case 2:
 	  val=uDirichletVal*n[2]; break;
 	case 3:
-	  val=0.0; break;
+	  val=1.0; break;
 	}
 	R[n1*dof+d1] = N[n1]*val;
       }
@@ -497,16 +497,14 @@ PetscErrorCode ProjectL2(IGA iga, PetscInt step, Vec U, void *mctx)
       ierr =   IGAFormClearBoundary(form,dir,side);
     }
   }
+  /*
   char           filename[256];
   sprintf(filename,"./project%d.vts",step);
   user->projectBC=false;
   Vec x2;
   ierr = IGACreateVec(user->iga,&x2);CHKERRQ(ierr);
   ierr = VecSet(x2,0.0);CHKERRQ(ierr);
-  ierr = IGASetFormFunction(user->iga,FunctionL2,user);CHKERRQ(ierr);
-  ierr = IGAComputeFunction(user->iga,U,x2);CHKERRQ(ierr);
-  ierr = IGADrawVecVTK(user->iga,x2,filename);CHKERRQ(ierr);
-  
+  */
   /* Solve L2 projection problem */
   Mat A;
   Vec b;
@@ -514,23 +512,37 @@ PetscErrorCode ProjectL2(IGA iga, PetscInt step, Vec U, void *mctx)
   ierr = IGACreateMat(user->iga,&A);CHKERRQ(ierr);
   ierr = IGACreateVec(user->iga,&b);CHKERRQ(ierr);
   ierr = MatSetOption(A,MAT_SYMMETRIC,PETSC_TRUE);CHKERRQ(ierr);
-  //
-  user->projectBC=true;
-  //ierr = IGASetFormFunction(user->iga,FunctionL2,user);CHKERRQ(ierr);
+  ierr = IGASetFormFunction(user->iga,FunctionL2,user);CHKERRQ(ierr);
   ierr = IGASetFormJacobian(user->iga,JacobianL2,user);CHKERRQ(ierr);
-  ierr = IGAComputeFunction(user->iga,user->x,b);CHKERRQ(ierr);
   ierr = IGAComputeJacobian(user->iga,user->x,A);CHKERRQ(ierr);
-  //
-  ierr = VecSet(user->x,0.0);CHKERRQ(ierr);
+  /*
   //Solver
   {
     KSP ksp;
     ierr = IGACreateKSP(user->iga,&ksp);CHKERRQ(ierr);
     ierr = KSPSetOperators(ksp,A,A);CHKERRQ(ierr);
     ierr = KSPSetFromOptions(ksp);CHKERRQ(ierr);
+    ierr = IGAComputeFunction(user->iga,U,b);CHKERRQ(ierr);
+    ierr = KSPSolve(ksp,b,x2);CHKERRQ(ierr);
+    ierr = KSPDestroy(&ksp);CHKERRQ(ierr);
+  }
+  //
+  ierr = IGADrawVecVTK(user->iga,x2,filename);CHKERRQ(ierr);
+  */
+  //
+  user->projectBC=true;
+  //
+  //Solver
+  {
+    KSP ksp;
+    ierr = IGACreateKSP(user->iga,&ksp);CHKERRQ(ierr);
+    ierr = KSPSetOperators(ksp,A,A);CHKERRQ(ierr);
+    ierr = KSPSetFromOptions(ksp);CHKERRQ(ierr);
+    ierr = IGAComputeFunction(user->iga,user->x,b);CHKERRQ(ierr);
     ierr = KSPSolve(ksp,b,user->x);CHKERRQ(ierr);
     ierr = KSPDestroy(&ksp);CHKERRQ(ierr);
   }
+  
   //
   //PetscReal xVal;
   //VecNorm(user->x,NORM_INFINITY,&xVal);
@@ -544,7 +556,7 @@ PetscErrorCode ProjectL2(IGA iga, PetscInt step, Vec U, void *mctx)
   ierr = IGASetBoundaryValue(user->iga,0,1,2,/*dummy*/0.0);CHKERRQ(ierr);
   ierr = IGASetFixTable(user->iga,user->x);CHKERRQ(ierr);    /* Set vector to read BCs from */
   //
-  ierr = VecDestroy(&x2);CHKERRQ(ierr);
+  //ierr = VecDestroy(&x2);CHKERRQ(ierr);
   ierr = VecDestroy(&b);CHKERRQ(ierr);
   ierr = MatDestroy(&A);CHKERRQ(ierr);
   PetscFunctionReturn(0);
@@ -665,7 +677,7 @@ int main(int argc, char *argv[]) {
   ierr = IGADrawVecVTK(iga,U,"mesh.vts");CHKERRQ(ierr);
   //
   TS ts;
-  PetscInt timeSteps=100;
+  PetscInt timeSteps=1000;
   ierr = IGACreateTS(iga,&ts);CHKERRQ(ierr);
   ierr = TSSetType(ts,TSBEULER);CHKERRQ(ierr);
   //ierr = TSSetMaxSteps(ts,timeSteps+1);CHKERRQ(ierr);

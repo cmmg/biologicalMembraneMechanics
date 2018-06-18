@@ -1,7 +1,7 @@
 import sys, numpy as np
 from igakit.nurbs import NURBS
 #from igakit.cad import circle, line, join, revolve
-from cad2 import circle, line, join, revolve
+from cad3 import circle, line, join, revolve
 import scipy.io
 import math
 from math import pi as Pi
@@ -46,11 +46,13 @@ S = revolve(Curve, (0,0), 1)
 
 #refine along Y
 #to_insertY = np.setdiff1d(linspace(0,1.0,21)[1:-1],S.knots[1]);
-S.elevate(0,1);
+#S.elevate(0,1);
+S.remove(0, 0.052631658, 1, 1.0e-3);
+print S.knots[0];
 #S.elevate(1,1);
-S.refine(1,kX);
 #S.refine(1,kX);
-S.unclamp(1, continuity=2);
+#S.refine(1,kX);
+S.unclamp(1, continuity=1);
 #S.insert(1,0.5,1)
 #S.rotate(1,0.5*Pi)
 
