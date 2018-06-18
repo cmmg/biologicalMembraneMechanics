@@ -27,7 +27,7 @@ print "Num knots:", len(kX);
 print kX;
 
 #Read from mat file
-mat = scipy.io.loadmat('bsplineTube.mat')
+mat = scipy.io.loadmat('bsplineCap.mat')
 
 order = np.array(mat['order'])
 order = order.tolist()[0][0];

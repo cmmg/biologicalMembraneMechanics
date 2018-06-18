@@ -422,7 +422,7 @@ PetscErrorCode FunctionL2(IGAPoint p, const PetscScalar *U, PetscScalar *R, void
   }
 	
   PetscReal uDirichletVal=-1.0*user->l*user->c_time;  
-  if (x[1]>(1*user->l)){ uDirichletVal=0.0;}//for top surface
+  if (x[1]>(10.5*user->l)){ uDirichletVal=0.0;}//for top surface
   //std::cout << "(," << uDirichletVal << ", " << x[1] << "), ";
 
   if (!user->projectBC){
@@ -550,7 +550,7 @@ PetscErrorCode ProjectL2(IGA iga, PetscInt step, Vec U, void *mctx)
   //
   ierr = IGASetBoundaryValue(user->iga,0,0,0,0.0);CHKERRQ(ierr); 
   ierr = IGASetBoundaryValue(user->iga,0,0,2,0.0);CHKERRQ(ierr);
-  ierr = IGASetBoundaryValue(user->iga,0,0,1,0.0);CHKERRQ(ierr);
+  //ierr = IGASetBoundaryValue(user->iga,0,0,1,0.0);CHKERRQ(ierr);
   ierr = IGASetBoundaryValue(user->iga,0,1,0,/*dummy*/0.0);CHKERRQ(ierr);
   ierr = IGASetBoundaryValue(user->iga,0,1,1,0.0);CHKERRQ(ierr); 
   ierr = IGASetBoundaryValue(user->iga,0,1,2,/*dummy*/0.0);CHKERRQ(ierr);
@@ -606,7 +606,7 @@ int main(int argc, char *argv[]) {
   user.l=1.0;
   user.kMean=1.0;
   user.kGaussian=0*-0.5*user.kMean;
-  user.mu=0.1;
+  user.mu=0.01;
   user.epsilon=0*user.kMean/user.l;
 #ifndef LagrangeMultiplierMethod
   user.delta=1000.0;
