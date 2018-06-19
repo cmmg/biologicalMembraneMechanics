@@ -1,26 +1,14 @@
 /*
-  Kirchhoff-Love shell implementation in PetIGA
-  author: rudraa
+  Helfrich energy material model
+  author: Shiva Rudraraju
  */
-#include <math.h> 
-//extern "C" {
-#include "petiga.h"
-//}
-
-//include automatic differentiation library
-#include <Sacado.hpp>
-typedef Sacado::Fad::DFad<double> doubleAD;
-
-#define LagrangeMultiplierMethod
+#if !defined(HELFRICH_H_)
+#define HELFRICH_H_
 
 typedef struct {
-  IGA iga;
   PetscReal l;
   PetscReal kMean, kGaussian, mu, epsilon, delta;
-  PetscReal c_time;
-  Vec x;
-  bool projectBC;
-} AppCtx;
+} HelfrichModel;
 
 #undef  __FUNCT__
 #define __FUNCT__ "Function"
