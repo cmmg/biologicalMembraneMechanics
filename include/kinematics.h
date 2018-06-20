@@ -6,7 +6,7 @@
 #define KINEMATICS_H_
 
 template <class T>
-typedef struct {
+struct  KinematicsStruct{
   //gradient and Hessian maps
   double dXdR[3][2][2];
   double dXdR2[3][2][2];
@@ -18,14 +18,14 @@ typedef struct {
   double A_contra[2][2]; T a_contra[2][2];
   double B[2][2]; T b[2][2];
   double B_contra[2][2]; T b_contra[2][2];
-  T Gamma[2][2][2]
+  T Gamma[2][2][2];
   //
   T J;
   T normal[3]; double Normal[3];
   //
   T I1;
   T H, Kappa;
-} KinematicsStruct;
+};
 
 
 #undef  __FUNCT__
@@ -34,6 +34,12 @@ template <class T>
 PetscErrorCode getKinematics(void* _kinematics){
   PetscFunctionBegin;
   KinematicsStruct<T> *k = (KinematicsStruct<T> *) _kinematics;
+
+  //
+  double (*dXdR)[2] = (double (*)[2]) k->dXdR;
+  double (*dXdR2)[2][2] = (double (*)[2][2]) k->dXdR2;
+  T (*dxdR)[2] = (double (*)[2]) k->dxdR;
+  T (*dxdR2)[2][2] = (double (*)[2]) k->dxdR2;
   
   //metric tensors A, a
   double (*A)[2] = (double (*)[2]) k->A;
@@ -136,7 +142,7 @@ PetscErrorCode getKinematics(void* _kinematics){
   k->I1=I1;
   
   //mean curvature: H
-  T H=0;
+  T H=0; PetscReal H0=0.0;
   for (unsigned int i=0; i<2; i++){
     for (unsigned int j=0; j<2; j++){
       H+=0.5*a[i][j]*b_contra[i][j];  //current curvature

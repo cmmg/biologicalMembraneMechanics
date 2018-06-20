@@ -4,11 +4,11 @@
  */
 #if !defined(RESIDUAL_H_)
 #define RESIDUAL_H_
-#include "include/kinematics.h"
-#include "include/HelfrichModel.h"
+#include "kinematics.h"
+#include "HelfrichModel.h"
 
 template <class T>
-typedef struct {
+struct BVPStruct{
   IGA iga;
   HelfrichModel<T> m;
   //
@@ -22,7 +22,7 @@ typedef struct {
   PetscReal angleConstraintValues[2];
   //Output
   bool projectBC;
-} BVPStruct;
+};
 
 #undef  __FUNCT__
 #define __FUNCT__ "ResidualFunction"

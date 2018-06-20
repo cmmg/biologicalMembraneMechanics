@@ -6,15 +6,14 @@
 #define HELFRICH_H_
 
 template <class T>
-typedef struct {
+struct HelfrichModel{
   PetscReal kMean, kGaussian, mu; //material modulus
   PetscReal lambda;   //penalty parameter for enforcing incompressibility
   //model or history variables
-  double H0;        //instantaneous curvature
   T q;              //Lagrange multiplier 
   //stress terms
   T sigma_contra[2][2], M_contra[2][2];
-} HelfrichModel;
+};
 
 #undef  __FUNCT__
 #define __FUNCT__ "computeStress"

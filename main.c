@@ -21,7 +21,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 
 #undef  __FUNCT__
 #define __FUNCT__ "setupBVP"
-PetscErrorCode setupBVP(BVPStruct& bvp)
+PetscErrorCode setupBVP(BVPStruct<doubleAD>& bvp)
 {
   PetscFunctionBegin;
   PetscErrorCode ierr;
@@ -31,7 +31,6 @@ PetscErrorCode setupBVP(BVPStruct& bvp)
   bvp.m.kGaussian=0.0;
   bvp.m.mu=0.01;
   bvp.m.lambda=1000;
-  bvp.m.H0=0.0;
   bvp.l=1.0;
   bvp.epsilon=1.0;
   
@@ -124,7 +123,7 @@ int main(int argc, char *argv[]) {
   //IGA and BVP setup
   IGA iga;
   ierr = IGACreate(PETSC_COMM_WORLD,&iga);CHKERRQ(ierr);
-  BVPStruct bvp;
+  BVPStruct<doubleAD> bvp;
   setupBVP(bvp);
   bvp.iga=iga;
   
