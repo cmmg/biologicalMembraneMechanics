@@ -33,11 +33,11 @@ typedef struct {
 template <class T>
 PetscErrorCode getKinematics(void* _kinematics){
   PetscFunctionBegin;
-  KinematicsStruct<T> *p = (KinematicsStruct<T> *) _kinematics;
+  KinematicsStruct<T> *k = (KinematicsStruct<T> *) _kinematics;
   
   //metric tensors A, a
-  double (*A)[2] = (double (*)[2]) p->A;
-  T (*a)[2] = (T (*)[2]) p->a;
+  double (*A)[2] = (double (*)[2]) k->A;
+  T (*a)[2] = (T (*)[2]) k->a;
   for(unsigned int i=0; i<2; i++){
     for(unsigned int j=0; j<2; j++){
       A[i][j]=0.0;
@@ -54,11 +54,11 @@ PetscErrorCode getKinematics(void* _kinematics){
   J_A=std::sqrt(A[0][0]*A[1][1]-A[0][1]*A[1][0]);
   J_a=std::sqrt(a[0][0]*a[1][1]-a[0][1]*a[1][0]);
   if (J_A<=0.0) {std::cout << "negative jacobian\n";  exit(-1);}
-  J=J_a/J_A; p->J=J;
+  J=J_a/J_A; k->J=J;
   
   //surface normals
-  double (*Normal) = (double (*)) p->Normal;
-  T (*normal) = (T (*)) p->normal;
+  double (*Normal) = (double (*)) k->Normal;
+  T (*normal) = (T (*)) k->normal;
   normal[0]=(dxdR[1][0]*dxdR[2][1]-dxdR[2][0]*dxdR[1][1])/J_a;
   normal[1]=(dxdR[2][0]*dxdR[0][1]-dxdR[0][0]*dxdR[2][1])/J_a;
   normal[2]=(dxdR[0][0]*dxdR[1][1]-dxdR[1][0]*dxdR[0][1])/J_a;
@@ -67,8 +67,8 @@ PetscErrorCode getKinematics(void* _kinematics){
   Normal[2]=(dXdR[0][0]*dXdR[1][1]-dXdR[1][0]*dXdR[0][1])/J_A;
   
   //curvature tensors B, b
-  double (*B)[2] = (double (*)[2]) p->B;
-  T (*b)[2] = (T (*)[2]) p->b;
+  double (*B)[2] = (double (*)[2]) k->B;
+  T (*b)[2] = (T (*)[2]) k->b;
   for(unsigned int i=0; i<2; i++){
     for(unsigned int j=0; j<2; j++){
       b[i][j]=0.0; B[i][j]=0.0;
@@ -85,8 +85,8 @@ PetscErrorCode getKinematics(void* _kinematics){
   double det_A=A[0][0]*A[1][1]-A[0][1]*A[1][0];
   
   //contra-variant metric tensors, a_contra, A_contra.
-  double (*A_contra)[2] = (double (*)[2]) p->A_contra;
-  T (*a_contra)[2] = (T (*)[2]) p->a_contra;
+  double (*A_contra)[2] = (double (*)[2]) k->A_contra;
+  T (*a_contra)[2] = (T (*)[2]) k->a_contra;
   T dxdR_contra[3][2];
   a_contra[0][0]=a[1][1]/det_a; a_contra[1][1]=a[0][0]/det_a;
   a_contra[0][1]=-a[0][1]/det_a; a_contra[1][0]=-a[1][0]/det_a;
@@ -98,8 +98,8 @@ PetscErrorCode getKinematics(void* _kinematics){
   }
   
   //contra-variant curvature tensors B_contra, b_contra.
-  double (*B_contra)[2] = (double (*)[2]) p->B_contra;
-  T (*b_contra)[2] = (T (*)[2]) p->b_contra;
+  double (*B_contra)[2] = (double (*)[2]) k->B_contra;
+  T (*b_contra)[2] = (T (*)[2]) k->b_contra;
   for(unsigned int i=0; i<2; i++){
     for(unsigned int j=0; j<2; j++){
       B_contra[i][j]=0.0;
@@ -114,7 +114,7 @@ PetscErrorCode getKinematics(void* _kinematics){
   }
   
   //Christoffel symbols
-  T (*Gamma)[2][2] = (T (*)[2][2]) p->Gamma;
+  T (*Gamma)[2][2] = (T (*)[2][2]) k->Gamma;
   for(unsigned int i=0; i<2; i++){
     for(unsigned int j=0; j<2; j++){
       for(unsigned int k=0; k<2; k++){
@@ -133,7 +133,7 @@ PetscErrorCode getKinematics(void* _kinematics){
       I1+=A_contra[i][j]*a[i][j];
     }
   }
-  p->I1=I1;
+  k->I1=I1;
   
   //mean curvature: H
   T H=0;
@@ -143,11 +143,11 @@ PetscErrorCode getKinematics(void* _kinematics){
       H0+=0.5*A[i][j]*B_contra[i][j]; //reference curvature
     }
   }
-  p->H=H;
+  k->H=H;
   
   //Gaussian curvature: Kappa
   T Kappa=det_b/det_a;
-  p->Kappa=Kappa;
+  k->Kappa=Kappa;
   
   PetscFunctionReturn(0);
 }
