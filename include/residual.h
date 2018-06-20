@@ -15,7 +15,11 @@ typedef struct {
   PetscReal l;       //characteristic length scale of the domain
   PetscReal epsilon; //penalty parameter for enforcing rotation BC's
   //B.C's
+  PetscInt type;
   PetscReal uDirichlet;
+  Vec xDirichlet;
+  bool angleConstraints[2];
+  PetscReal angleConstraintValues[2];
   //Output
   bool projectBC;
 } BVPStruct;
