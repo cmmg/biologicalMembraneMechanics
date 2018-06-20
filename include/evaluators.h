@@ -15,7 +15,7 @@ PetscErrorCode Residual(IGAPoint p,
 {
   PetscFunctionBegin;
   
-  Function<PetscReal>(p, shift, V, t, U, t0, U0, R, ctx);
+  ResidualFunction<PetscReal>(p, shift, V, t, U, t0, U0, R, ctx);
   /*
   PetscInt nen, dof;
   IGAPointGetSizes(p,0,&nen,&dof);

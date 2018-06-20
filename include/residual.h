@@ -13,17 +13,21 @@ typedef struct {
   HelfrichModel<T> m;
   //
   PetscReal l;       //characteristic length scale of the domain
-  PetscReal epsilon; //penalty parameter for enforcing rotation BC's 
+  PetscReal epsilon; //penalty parameter for enforcing rotation BC's
+  //B.C's
+  PetscReal uDirichlet;
+  //Output
+  bool projectBC;
 } BVPStruct;
 
 #undef  __FUNCT__
-#define __FUNCT__ "Residual"
+#define __FUNCT__ "ResidualFunction"
 template <class T>
-PetscErrorCode Residual(IGAPoint p,
-			PetscReal shift,const PetscScalar *V,
-			PetscReal t,const T * tempU,
-			PetscReal t0,const PetscScalar * tempU0,
-			T *R,void *ctx)
+PetscErrorCode ResidualFunction(IGAPoint p,
+				PetscReal shift,const PetscScalar *V,
+				PetscReal t,const T * tempU,
+				PetscReal t0,const PetscScalar * tempU0,
+				T *R,void *ctx)
 {
   PetscFunctionBegin;
   BVPStruct *bvp = (BVPStruct *)ctx;
