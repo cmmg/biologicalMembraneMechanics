@@ -18,8 +18,8 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 #include "include/solvers.h"
 
 //parameters
-#define bvpType 0
-#define numLoadSteps 2000 
+#define bvpType 3
+#define numLoadSteps 100 
 
 #undef  __FUNCT__
 #define __FUNCT__ "setBCs"
@@ -38,8 +38,6 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
       ierr =   IGAFormClearBoundary(form,dir,side);
     }
   }
-  bvp.uDirichlet=-c_time*std::sqrt(2)*bvp.l*1.0; //X=Z=uDirichlet at the bottom of the cap (displacement control)
-  ProjectL2(&bvp);
   
   //Boundary form for Neumann BC's
   ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_FALSE);CHKERRQ(ierr);
@@ -51,6 +49,9 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
   //Dirichlet and Neumann BC's
   switch (bvp.type) {
   case 0: //cap BVP
+    bvp.uDirichlet=-c_time*std::sqrt(2)*bvp.l*1.0; //X=Z=uDirichlet at the bottom of the cap (displacement control)
+    ProjectL2(&bvp);
+  
     //Dirichlet
     //ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the cap
     //ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the cap
@@ -63,6 +64,9 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr); //phi=0  at the top of the cap
     bvp.angleConstraints[0]=true; bvp.angleConstraintValues[0]=90;
     bvp.angleConstraints[1]=true; bvp.angleConstraintValues[1]=0;
+
+    //Non-homogeneous Dirichlet BC values
+    ierr = IGASetFixTable(bvp.iga,bvp.xDirichlet);CHKERRQ(ierr);    /* Set vector to read BCs from */
     break;
     
   case 1: //tube BVP
@@ -92,13 +96,24 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     bvp.angleConstraints[1]=true; bvp.angleConstraintValues[1]=90;
     break;
 
-  case 3: //pulling flat membrane BVP
+  case 3: //pulling flat membrane BVP. AKA baseCircle BVP.
+     //Dirichlet
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the baseCircle
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the baseCircle
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the baseCircle
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,0.0);CHKERRQ(ierr); //X=0 at the bottom of the baseCircle
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,0.0);CHKERRQ(ierr); //Z=0 at the bottom of the baseCircle
+    double pullHeight=0.1*c_time*bvp.l*1.0;
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,1,pullHeight);CHKERRQ(ierr); //Y=0 at the bottom of the baseCircle
+    
+    //Neumann
+    ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the bottom of the cap
+    ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr); //phi=0  at the top of the cap
+    bvp.angleConstraints[0]=false; bvp.angleConstraintValues[0]=90;
+    bvp.angleConstraints[1]=false; bvp.angleConstraintValues[1]=0;
     break;
   }
- 
-  //Non-homogeneous Dirichlet BC values
-  ierr = IGASetFixTable(bvp.iga,bvp.xDirichlet);CHKERRQ(ierr);    /* Set vector to read BCs from */
-  //PetscReal xVal; VecNorm(bvp.xDirichlet,NORM_INFINITY,&xVal); std::cout << "xVal: " << xVal << "\n";
+  //
   PetscFunctionReturn(0);
 }
 
@@ -116,7 +131,7 @@ int main(int argc, char *argv[]) {
   bvp.l=1.0;
   bvp.kMean=1.0;
   bvp.kGaussian=0.0;
-  bvp.mu=0.01;
+  bvp.mu=1.0;
   bvp.lambda=1000;
   bvp.epsilon=0*1.0;
   bvp.type=bvpType;
@@ -137,6 +152,8 @@ int main(int argc, char *argv[]) {
     ierr = IGARead(iga,"meshes/tubeMesh.dat"); CHKERRQ(ierr); break;
   case 2: //base BVP
     ierr = IGARead(iga,"meshes/baseMesh.dat"); CHKERRQ(ierr); break;
+  case 3: //baseCircle BVP
+    ierr = IGARead(iga,"meshes/baseCircleTrimmedMeshr80h80.dat"); CHKERRQ(ierr); break;
   }
   ierr = IGASetFromOptions(iga);CHKERRQ(ierr);
   ierr = IGASetUp(iga);CHKERRQ(ierr);

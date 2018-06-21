@@ -16,8 +16,8 @@ r=0.5*R;
 %
 %populate M (2XN points on the curve... where N is some large number that is sufficient for estimating the control points)
 %first arc
-theta=linspace(pi/2,0.01*pi/2,numKnots);
-M=[0+R*sin(theta); 0*H+R*cos(theta)];
+theta=linspace(1,0*0.01,numKnots);
+M=[R*theta; 0*theta];
 
     
 D = bspline_estimate(k,t,M);
@@ -37,4 +37,4 @@ axis equal;
 order=k-1;
 knots=t;
 controlPoints=D;
-save('capTrimmed40.mat','order','knots','controlPoints','-v6') %version 6 format needed to read into python using scipy.io.loadmat
+save('baseCircle40.mat','order','knots','controlPoints','-v6') %version 6 format needed to read into python using scipy.io.loadmat
