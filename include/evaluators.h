@@ -46,7 +46,6 @@ PetscErrorCode Jacobian(IGAPoint p,
 {
   PetscFunctionBegin;
 
-  AppCtx *user = (AppCtx *)ctx;
   PetscInt nen, dof;
   IGAPointGetSizes(p,0,&nen,&dof);
   //
@@ -56,7 +55,7 @@ PetscErrorCode Jacobian(IGAPoint p,
     U_AD[i].diff(i, dof*nen);
   } 
   std::vector<doubleAD> R(nen*dof);
-  Function<doubleAD> (p, shift, V, t, &U_AD[0], t0, U0, &R[0], ctx);
+  ResidualFunction<doubleAD> (p, shift, V, t, &U_AD[0], t0, U0, &R[0], ctx);
   for(int n1=0; n1<nen; n1++){
     for(int d1=0; d1<dof; d1++){
       for(int n2=0; n2<nen; n2++){

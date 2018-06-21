@@ -31,7 +31,7 @@ PetscErrorCode FunctionDirichletL2(IGAPoint p, const PetscScalar *U, PetscScalar
   }
 	
   PetscReal uDirichletVal=-1.0*bvp->uDirichlet;  
-  if (x[1]>(10.5*user->l)){ uDirichletVal=0.0;}//for top surface
+  if (x[1]>(10.5*bvp->l)){ uDirichletVal=0.0;}//for top surface
 
   //L2 projection residual
   const PetscReal (*N) = (const PetscReal (*)) p->shape[0];;  
@@ -95,7 +95,7 @@ PetscErrorCode ProjectL2(IGA iga, PetscInt step, Vec U, void *ctx)
 
   //clear old BC's
   IGAForm form;
-  ierr = IGAGetForm(user->iga,&form);CHKERRQ(ierr);
+  ierr = IGAGetForm(bvp->iga,&form);CHKERRQ(ierr);
   for (PetscInt dir=0; dir<2; dir++){
     for (PetscInt side=0; side<2; side++){
       ierr =   IGAFormClearBoundary(form,dir,side);
@@ -120,7 +120,7 @@ PetscErrorCode ProjectL2(IGA iga, PetscInt step, Vec U, void *ctx)
     ierr = IGACreateKSP(bvp->iga,&ksp);CHKERRQ(ierr);
     ierr = KSPSetOperators(ksp,A,A);CHKERRQ(ierr);
     ierr = KSPSetFromOptions(ksp);CHKERRQ(ierr);
-    ierr = IGAComputeFunction(user->iga,0,b);CHKERRQ(ierr);
+    ierr = IGAComputeFunction(bvp->iga,0,b);CHKERRQ(ierr);
     ierr = KSPSolve(ksp,b,bvp->xDirichlet);CHKERRQ(ierr);
     ierr = KSPDestroy(&ksp);CHKERRQ(ierr);
   }
