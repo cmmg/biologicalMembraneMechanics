@@ -19,7 +19,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 
 //parameters
 #define bvpType 0
-#define numLoadSteps 400 
+#define numLoadSteps 2000 
 
 #undef  __FUNCT__
 #define __FUNCT__ "setBCs"
@@ -38,7 +38,7 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
       ierr =   IGAFormClearBoundary(form,dir,side);
     }
   }
-  bvp.uDirichlet=-c_time*std::sqrt(2)*bvp.l*1.0e-1; //X=Z=uDirichlet at the bottom of the cap (displacement control)
+  bvp.uDirichlet=-c_time*std::sqrt(2)*bvp.l*1.0; //X=Z=uDirichlet at the bottom of the cap (displacement control)
   ProjectL2(&bvp);
   
   //Boundary form for Neumann BC's
@@ -52,8 +52,8 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
   switch (bvp.type) {
   case 0: //cap BVP
     //Dirichlet
-    ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the cap
-    ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the cap
+    //ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the cap
+    //ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the cap
     ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the cap
     ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); //Init for X=uDirichlet at the bottom of the cap
     ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr); //Init foe Z=uDirichlet at the bottom of the cap
@@ -118,7 +118,7 @@ int main(int argc, char *argv[]) {
   bvp.kGaussian=0.0;
   bvp.mu=0.01;
   bvp.lambda=1000;
-  bvp.epsilon=1.0;
+  bvp.epsilon=0*1.0;
   bvp.type=bvpType;
   bvp.c_time=0.0;
   

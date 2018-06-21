@@ -18,7 +18,10 @@ PetscErrorCode OutputMonitor(TS ts,PetscInt it_number,PetscReal c_time,Vec U,voi
   char           filename[256];
   sprintf(filename,"./solution%d.vts",it_number);
   ierr = IGADrawVecVTK(bvp->iga,U,filename);CHKERRQ(ierr);
-  //
+  //project and output reaction forces
+  ProjectR(U, ctx);
+  
+  //setup BCs for next load increment 
   bvp->c_time=c_time;
   bvp->load_increment=it_number;
   setBCs(*bvp, it_number, c_time);
