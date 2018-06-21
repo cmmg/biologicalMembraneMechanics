@@ -13,6 +13,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 #define LagrangeMultiplierMethod
 
 #include "include/residual.h"
+#include "include/project.h"
 #include "include/output.h"
 #include "include/solvers.h"
 
@@ -21,30 +22,44 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 #define numLoadSteps 100 
 
 #undef  __FUNCT__
-#define __FUNCT__ "setupBVP"
-PetscErrorCode setupBVP(BVPStruct& bvp)
+#define __FUNCT__ "setBCs"
+PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
 {
   PetscFunctionBegin;
   PetscErrorCode ierr;
-  
-  //Boundary form for Neumann BC's
+
+  ierr = IGASetFixTable(bvp.iga,NULL);CHKERRQ(ierr); /* Clear vector to read BCs from */
+
+  //clear old BC's
   IGAForm form;
   ierr = IGAGetForm(bvp.iga,&form);CHKERRQ(ierr);
+  for (PetscInt dir=0; dir<2; dir++){
+    for (PetscInt side=0; side<2; side++){
+      ierr =   IGAFormClearBoundary(form,dir,side);
+    }
+  }
+  bvp.uDirichlet=-c_time*bvp.l*1.0e-1; //X=Z=uDirichlet at the bottom of the cap (displacement control)
+  ProjectL2(&bvp);
+  
+  //Boundary form for Neumann BC's
+  /*
   ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_FALSE);CHKERRQ(ierr);
   ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_FALSE);CHKERRQ(ierr);
   ierr = IGAFormSetBoundaryForm (form,1,0,PETSC_FALSE);CHKERRQ(ierr);
   ierr = IGAFormSetBoundaryForm (form,1,1,PETSC_FALSE);CHKERRQ(ierr);
   bvp.angleConstraints[0]= bvp.angleConstraints[1]=false;
-
+  */
+  
   //Dirichlet and Neumann BC's
   switch (bvp.type) {
   case 0: //cap BVP
     //Dirichlet
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the cap
     ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the cap
     ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the cap
-    bvp.uDirichlet=bvp.l*1.0e-1; //X=Z=uDirichlet at the bottom of the cap (Pinching through displacement control)
-    
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the cap
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); //Init for X=uDirichlet at the bottom of the cap
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr); //Init foe Z=uDirichlet at the bottom of the cap
+   
     //Neumann
     ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the bottom of the cap
     ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr); //phi=0  at the top of the cap
@@ -57,7 +72,6 @@ PetscErrorCode setupBVP(BVPStruct& bvp)
     ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the tube
     ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the tube
     ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the tube
-    bvp.uDirichlet=bvp.l*1.0e-1; //X=Z=uDirichlet at the bottom of the tube (Pinching through displacement control)
     
     //Neumann
     ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the bottom of the tube
@@ -72,7 +86,6 @@ PetscErrorCode setupBVP(BVPStruct& bvp)
     ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the base
     ierr = IGASetBoundaryValue(bvp.iga,0,0,2,0.0);CHKERRQ(ierr); //Z=0 at the bottom of the base
     //ierr = IGASetBoundaryValue(bvp.iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the base
-    bvp.uDirichlet=bvp.l*1.0e-1; //X=Z=uDirichlet at the bottom of the tube (Pinching through displacement control)
     
     //Neumann
     ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=0 at the bottom of the base
@@ -84,7 +97,10 @@ PetscErrorCode setupBVP(BVPStruct& bvp)
   case 3: //pulling flat membrane BVP
     break;
   }
-  
+ 
+  //Non-homogeneous Dirichlet BC values
+  ierr = IGASetFixTable(bvp.iga,bvp.xDirichlet);CHKERRQ(ierr);    /* Set vector to read BCs from */
+  //PetscReal xVal; VecNorm(bvp.xDirichlet,NORM_INFINITY,&xVal); std::cout << "xVal: " << xVal << "\n";
   PetscFunctionReturn(0);
 }
 
@@ -99,13 +115,14 @@ int main(int argc, char *argv[]) {
   
   //setup BVP and material model parameters
   BVPStruct bvp;
+  bvp.l=1.0;
   bvp.kMean=1.0;
   bvp.kGaussian=0.0;
   bvp.mu=0.01;
   bvp.lambda=1000;
-  bvp.l=1.0;
-  bvp.epsilon=1.0;
+  bvp.epsilon=0*1.0;
   bvp.type=bvpType;
+  bvp.c_time=0.0;
   
 #ifdef LagrangeMultiplierMethod
   ierr = IGASetDof(iga,4);CHKERRQ(ierr); // dofs = {ux,uy,uz,q}
@@ -117,7 +134,7 @@ int main(int argc, char *argv[]) {
   ierr = IGAAxisSetPeriodic(iga->axis[1],PETSC_TRUE);CHKERRQ(ierr);
   switch (bvp.type) {
   case 0: //cap BVP
-    ierr = IGARead(iga,"meshes/capMesh.dat"); CHKERRQ(ierr); break;
+    ierr = IGARead(iga,"meshes/capMeshr80h40.dat"); CHKERRQ(ierr); break;
   case 1: //tube BVP
     ierr = IGARead(iga,"meshes/tubeMesh.dat"); CHKERRQ(ierr); break;
   case 2: //base BVP
@@ -126,8 +143,6 @@ int main(int argc, char *argv[]) {
   ierr = IGASetFromOptions(iga);CHKERRQ(ierr);
   ierr = IGASetUp(iga);CHKERRQ(ierr);
   bvp.iga = iga;
-  //
-  setupBVP(bvp);
   
   //Print knots to output
   PetscMPIInt rank,size;
@@ -160,11 +175,12 @@ int main(int argc, char *argv[]) {
   ierr = IGACreateVec(bvp.iga,&U);CHKERRQ(ierr);
   ierr = VecSet(U,0.0);CHKERRQ(ierr);
   ierr = IGACreateVec(bvp.iga,&bvp.xDirichlet);CHKERRQ(ierr);
-  
   //
   ierr = IGASetFormIEFunction(bvp.iga,Residual,&bvp);CHKERRQ(ierr);
   ierr = IGASetFormIEJacobian(bvp.iga,Jacobian,&bvp);CHKERRQ(ierr);
-
+  //
+  setBCs(bvp, 0, 0.0);
+  
   //load stepping
   TS ts;
   PetscInt timeSteps=numLoadSteps;

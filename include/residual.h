@@ -21,6 +21,9 @@ struct BVPStruct{
   Vec xDirichlet;
   bool angleConstraints[2];
   PetscReal angleConstraintValues[2];
+  //load stepping
+  PetscReal c_time;
+  PetscInt load_increment;
   //Output
   bool projectBC;
 };

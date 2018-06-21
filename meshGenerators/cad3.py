@@ -1,6 +1,7 @@
 import numpy as np
 from igakit.nurbs import NURBS
 from igakit.transform import transform
+import scipy.io
 
 # -----
 
@@ -419,7 +420,7 @@ def extrude(nrb, displ, axis=None):
     UVW = nrb.knots + ([0,0,1,1],)
     return NURBS(UVW, Cw)
 
-def revolve(nrb, point, axis=2, angle=None):
+def revolve(nrb, filename, point, axis=2, angle=None):
     """
     Construct a NURBS surface/volume by
     revolving a NURBS curve/surface.
@@ -471,7 +472,13 @@ def revolve(nrb, point, axis=2, angle=None):
     theta = np.arctan2(Y, X); theta[theta<0] += 2*np.pi
     sines, cosines = np.sin(theta), np.cos(theta)
     # Create a circular arc in the XY plane
-    arc = circle(angle=angle)
+    matX = scipy.io.loadmat(filename)
+    knotsX = np.array(matX['knots']);
+    knotsX = knotsX.tolist()[0];
+    CX = np.transpose(np.array(matX['controlPoints']));
+    UX=knotsX; 
+    arc = NURBS([UX],CX);
+    #arc = circle(angle=angle)
     Aw = arc.control
     # Allocate control points and knots of the result
     Qw = np.empty(nrb.shape + arc.shape + (4,))

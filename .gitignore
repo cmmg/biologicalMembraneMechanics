@@ -13,7 +13,6 @@
 *.la
 *.a
 *.vtk
-*.dat
 *~
 *.vts
 *tgz
@@ -34,3 +33,4 @@ build
 simulations*
 L2Projection
 .DS_Store
+meshGenerators/*.dat

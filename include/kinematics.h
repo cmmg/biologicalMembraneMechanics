@@ -13,7 +13,6 @@ struct  KinematicsStruct{
   T dxdR[3][2];
   T dxdR2[3][2][2];
   T dxdR_contra[3][2];
-  
   //kinematic quantities
   double A[2][2]; T a[2][2];
   double A_contra[2][2]; T a_contra[2][2];
