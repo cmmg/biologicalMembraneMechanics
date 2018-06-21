@@ -157,13 +157,15 @@ PetscErrorCode ResidualFunction(IGAPoint p,
 	for (unsigned int j=0; j<2; j++){
 	  //change of curve length not currently accounted as the corresponding Jacobian not yet implemented.
 	  //Ru_i+=epsilonBar*std::abs(nValue[0])*(N1[n][j]*normal[i]*nValue[d]*dxdR_contra[d][j]);
-	  if (std::abs(pCoords[0])<1.0e-8){
-	    PetscReal nValue[3]={0.0, 0.0, -1.0};  //normal along -Z for \eta_2=1
-	    Ru_i+=-Epsilon*(L/K)*k.normal[0]*k.normal[0]*(N1[n][j]*k.dxdR_contra[i][j]); 
+	  if (std::abs(pCoords[1])<1.0e-2*L){ //bottom
+	    if (bvp->angleConstraints[0]){
+	      Ru_i+=-Epsilon*(L/K)*k.normal[1]*k.normal[1]*(N1[n][j]*k.dxdR_contra[i][j]);
+	    }
 	  }
-	  else{
-	    PetscReal nValue[3]={1.0, 0.0, 0.0}; //normal along +X for \eta_2=0
-	    Ru_i+=-Epsilon*(L/K)*k.normal[2]*k.normal[2]*(N1[n][j]*k.dxdR_contra[i][j]);
+	  else{ //top
+	    if (bvp->angleConstraints[1]){
+	      Ru_i+=-Epsilon*(L/K)*(k.normal[0]*k.normal[0]+k.normal[2]*k.normal[2])*(N1[n][j]*k.dxdR_contra[i][j]);
+	    }
 	  }  
 	}
 	R[n*dof+i] = Ru_i; 

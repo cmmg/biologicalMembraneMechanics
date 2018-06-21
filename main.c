@@ -38,17 +38,15 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
       ierr =   IGAFormClearBoundary(form,dir,side);
     }
   }
-  bvp.uDirichlet=-c_time*bvp.l*1.0e-1; //X=Z=uDirichlet at the bottom of the cap (displacement control)
+  bvp.uDirichlet=-c_time*std::sqrt(2)*bvp.l*1.0e-1; //X=Z=uDirichlet at the bottom of the cap (displacement control)
   ProjectL2(&bvp);
   
   //Boundary form for Neumann BC's
-  /*
   ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_FALSE);CHKERRQ(ierr);
   ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_FALSE);CHKERRQ(ierr);
   ierr = IGAFormSetBoundaryForm (form,1,0,PETSC_FALSE);CHKERRQ(ierr);
   ierr = IGAFormSetBoundaryForm (form,1,1,PETSC_FALSE);CHKERRQ(ierr);
   bvp.angleConstraints[0]= bvp.angleConstraints[1]=false;
-  */
   
   //Dirichlet and Neumann BC's
   switch (bvp.type) {
@@ -120,7 +118,7 @@ int main(int argc, char *argv[]) {
   bvp.kGaussian=0.0;
   bvp.mu=0.01;
   bvp.lambda=1000;
-  bvp.epsilon=0*1.0;
+  bvp.epsilon=1.0;
   bvp.type=bvpType;
   bvp.c_time=0.0;
   
