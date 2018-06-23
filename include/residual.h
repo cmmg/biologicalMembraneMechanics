@@ -7,6 +7,8 @@
 #include "kinematics.h"
 #include "HelfrichModel.h"
 
+#define PI 3.14159
+
 struct BVPStruct{
   IGA iga;
   //
@@ -170,11 +172,26 @@ PetscErrorCode ResidualFunction(IGAPoint p,
   
   //
   bool surfaceFlag=p->atboundary;
-  PetscReal *boundaryNormal = p->normal;
+  //PetscReal *boundaryNormal = p->normal;
   PetscReal pCoords[3]; IGAPointFormGeomMap(p,pCoords);
   PetscReal tempR=std::sqrt(pCoords[0]*pCoords[0]+pCoords[2]*pCoords[2]);
   if (tempR==0){tempR=1.0;}
-  PetscReal nValue[3]={pCoords[0]/tempR, 0, pCoords[2]/tempR}; 
+  PetscReal rVec[3]={pCoords[0]/tempR, 0, pCoords[2]/tempR}; //Radial vector used for applying radial forces
+
+  //rotational constraints
+  bool hasRotationalConstraint = false; 
+  PetscReal theta=0.0;
+  if (std::abs(pCoords[1])<1.0e-2*bvp->l){ //bottom surface
+    if (bvp->angleConstraints[0]){theta=bvp->angleConstraintValues[0]; hasRotationalConstraint=true;}
+  }
+  else{ //top surface
+    if (bvp->angleConstraints[1]){theta=bvp->angleConstraintValues[1]; hasRotationalConstraint=true;}
+  }
+  PetscReal nVec[3]={0,0,0};
+  if (hasRotationalConstraint){
+    if (theta==0){ nVec[1]=1.0; }
+    else if (theta==90){ nVec[0]=-rVec[0];  nVec[2]=-rVec[2]; }
+  }
   
   //Residual
   PetscReal L=bvp->l;
@@ -220,25 +237,26 @@ PetscErrorCode ResidualFunction(IGAPoint p,
     }
   }
   else{
+    if (hasRotationalConstraint){
+      if (bvp->angleConstraints[0]==true){
+	//std::cout << pCoords[1] << "v: (" << nVec[0] << ", " << nVec[1] << ", " << nVec[2] << ")\n";
+	//std::cout << pCoords[1] << "n: (" << k.normal[0].val() << ", " << k.normal[1].val() << ", " << k.normal[2].val() << ")\n";
+      }
+    }
     for (unsigned int n=0; n<(unsigned int)nen; n++) {
       for (unsigned int i=0; i<3; i++){
 	T Ru_i=0.0;
-	//Rotational constraints 
-	for (unsigned int j=0; j<2; j++){
-	  //change of curve length not currently accounted as the corresponding Jacobian not yet implemented.
-	  //Ru_i+=epsilonBar*std::abs(nValue[0])*(N1[n][j]*normal[i]*nValue[d]*dxdR_contra[d][j]);
-	  if (std::abs(pCoords[1])<1.0e-2*L){ //bottom
-	    if (bvp->angleConstraints[0]){
-	      Ru_i+=-Epsilon*(L/K)*k.normal[1]*k.normal[1]*(N1[n][j]*k.dxdR_contra[i][j]);
+	//Rotational constraints
+	//change of curve length not currently accounted as the corresponding Jacobian not yet implemented.
+	//Ru_i+=epsilonBar*N1[n][a]*normal[i]*(nValue[j]-normal[j])*dxdR_contra[j][a]
+	if (hasRotationalConstraint){
+	  for (unsigned int j=0; j<3; j++){  
+	    for (unsigned int a=0; a<2; a++){  
+	      Ru_i+=-(L/K)*Epsilon*k.normal[i]*(k.normal[j]-nVec[j])*(N1[n][a]*k.dxdR_contra[j][a]);
 	    }
 	  }
-	  else{ //top
-	    if (bvp->angleConstraints[1]){
-	      Ru_i+=-Epsilon*(L/K)*(k.normal[0]*k.normal[0]+k.normal[2]*k.normal[2])*(N1[n][j]*k.dxdR_contra[i][j]);
-	    }
-	  }  
 	}
-	Ru_i+= -N[n]*nValue[i]*bvp->surfaceTensionAtBase*J;
+	Ru_i+=-((L*L)/K)*N[n]*rVec[i]*bvp->surfaceTensionAtBase;
 	R[n*dof+i] = Ru_i; 
       }
 #ifdef LagrangeMultiplierMethod

@@ -5,12 +5,11 @@
 
 #include "petiga.h"
 #include <math.h> 
-
-//include automatic differentiation library
 #include <Sacado.hpp>
 typedef Sacado::Fad::DFad<double> doubleAD;
 
-//#define LagrangeMultiplierMethod
+#define LagrangeMultiplierMethod
+#define enableFastResidualComputation
 
 #include "include/residual.h"
 #include "include/project.h"
@@ -64,8 +63,9 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the bottom of the cap
     ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr); //phi=0  at the top of the cap
     bvp.angleConstraints[0]=true; bvp.angleConstraintValues[0]=90;
-    bvp.angleConstraints[1]=true; bvp.angleConstraintValues[1]=0;
-
+    bvp.angleConstraints[1]=false; bvp.angleConstraintValues[1]=0;
+    bvp.epsilon=1.0;
+    
     //Non-homogeneous Dirichlet BC values
     ierr = IGASetFixTable(bvp.iga,bvp.xDirichlet);CHKERRQ(ierr);    /* Set vector to read BCs from */
     break;
@@ -135,8 +135,8 @@ int main(int argc, char *argv[]) {
   bvp.kGaussian=0.0;
   bvp.mu=1.0;
   bvp.lambda=1000;
-  bvp.surfaceTensionAtBase=0;
-  bvp.epsilon=0*1.0;
+  bvp.surfaceTensionAtBase=0.0;
+  bvp.epsilon=0.0;
   bvp.type=bvpType;
   bvp.stabilization=stabilizationMethod;
   bvp.c_time=0.0;

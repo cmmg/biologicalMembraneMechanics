@@ -14,9 +14,9 @@ PetscErrorCode Residual(IGAPoint p,
 			PetscScalar *R,void *ctx)
 {
   PetscFunctionBegin;
-  
+#ifdef enableFastResidualComputation
   ResidualFunction<PetscReal>(p, shift, V, t, U, t0, U0, R, ctx);
-  /*
+#else
   PetscInt nen, dof;
   IGAPointGetSizes(p,0,&nen,&dof);
   std::vector<doubleAD> U_AD(nen*dof);
@@ -25,13 +25,13 @@ PetscErrorCode Residual(IGAPoint p,
     U_AD[i].diff(i, dof*nen);
   }
   std::vector<doubleAD> tempR(nen*dof);
-  Function<doubleAD> (p, shift, V, t, &U_AD[0], t0, U0, &tempR[0], ctx);
+  ResidualFunction<doubleAD> (p, shift, V, t, &U_AD[0], t0, U0, &tempR[0], ctx);
   for(int n1=0; n1<nen; n1++){
     for(int d1=0; d1<dof; d1++){
       R[n1*dof+d1]= tempR[n1*dof+d1].val();
     }
   }
-  */
+#endif
 
   PetscFunctionReturn(0);
 }
