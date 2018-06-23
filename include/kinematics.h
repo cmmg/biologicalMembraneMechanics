@@ -26,6 +26,7 @@ struct  KinematicsStruct{
   T I1;
   double H0;
   T H, Kappa;
+  T q; //Lagrange multiplier
   //stabilization related quatities
   double dx0dR[3][2], dx0dR2[3][2][2];
   double aPre[2][2], aPre_contra[2][2];
@@ -36,8 +37,78 @@ struct  KinematicsStruct{
 #undef  __FUNCT__
 #define __FUNCT__ "getKinematics"
 template <class T>
-PetscErrorCode getKinematics(KinematicsStruct<T>& k){
+PetscErrorCode getKinematics(IGAPoint p, const T * tempU, const PetscScalar * tempU0, KinematicsStruct<T>& k){
   PetscFunctionBegin;
+
+  //get number of shape functions (nen) and dof's
+  PetscInt nen, dof;
+  IGAPointGetSizes(p,0,&nen,&dof);
+
+  //shape functions: value, grad, hess
+  const PetscReal (*N) = (const PetscReal (*)) p->shape[0];
+  const PetscReal (*N1)[2] = (const PetscReal (*)[2]) p->basis[1];
+  const PetscReal (*N2)[2][2] = (const PetscReal (*)[2][2]) p->basis[2];
+
+  //get X
+  const PetscReal (*X)[3] = (const PetscReal (*)[3]) p->geometry;
+
+  //get x, q
+  T x[nen][3]; double x0[nen][3];
+#ifdef LagrangeMultiplierMethod
+  T (*u)[3+1] = (T (*)[3+1])tempU;
+  double (*u0)[3+1] = (double (*)[3+1])tempU0;
+  T q=0.0; //q is the Lagrange multiplier value at this point
+#else
+  T (*u)[3] = (T (*)[3])tempU;
+  double (*u0)[3] = (double (*)[3])tempU0;
+#endif
+  for(unsigned int n=0; n<(unsigned int) nen; n++){
+    for(unsigned int d=0; d<3; d++){
+      x[n][d]= X[n][d]+ u[n][d];
+      x0[n][d]= X[n][d]+ u0[n][d];
+    }
+#ifdef LagrangeMultiplierMethod
+    q+=N[n]*u[n][3];
+#endif
+  }
+#ifdef LagrangeMultiplierMethod
+  k.q=q;
+#endif
+  
+  //basis vectors, dXdR and dxdR, gradient of basis vectors, dXdR2 and dxdR2
+  for(unsigned int d=0; d<3; d++){
+    k.dXdR[d][0]=k.dXdR[d][1]=0.0;
+    k.dXdR2[d][0][0]=k.dXdR2[d][0][1]=0.0;
+    k.dXdR2[d][1][0]=k.dXdR2[d][1][1]=0.0;
+    k.dxdR[d][0]=k.dxdR[d][1]=0.0;
+    k.dxdR2[d][0][0]=k.dxdR2[d][0][1]=0.0;
+    k.dxdR2[d][1][0]=k.dxdR2[d][1][1]=0.0;
+    k.dx0dR[d][0]=k.dx0dR[d][1]=0.0;
+    k.dx0dR2[d][0][0]=k.dx0dR2[d][0][1]=0.0;
+    k.dx0dR2[d][1][0]=k.dx0dR2[d][1][1]=0.0;
+    for(unsigned int n=0; n<(unsigned int) nen; n++){
+      k.dXdR[d][0]+=N1[n][0]*X[n][d];
+      k.dXdR[d][1]+=N1[n][1]*X[n][d];
+      k.dXdR2[d][0][0]+=N2[n][0][0]*X[n][d];
+      k.dXdR2[d][0][1]+=N2[n][0][1]*X[n][d];
+      k.dXdR2[d][1][0]+=N2[n][1][0]*X[n][d];	    
+      k.dXdR2[d][1][1]+=N2[n][1][1]*X[n][d];
+      //
+      k.dxdR[d][0]+=N1[n][0]*x[n][d];
+      k.dxdR[d][1]+=N1[n][1]*x[n][d];
+      k.dxdR2[d][0][0]+=N2[n][0][0]*x[n][d];
+      k.dxdR2[d][0][1]+=N2[n][0][1]*x[n][d];
+      k.dxdR2[d][1][0]+=N2[n][1][0]*x[n][d];	    
+      k.dxdR2[d][1][1]+=N2[n][1][1]*x[n][d];
+      //
+      k.dx0dR[d][0]+=N1[n][0]*x0[n][d];
+      k.dx0dR[d][1]+=N1[n][1]*x0[n][d];
+      k.dx0dR2[d][0][0]+=N2[n][0][0]*x0[n][d];
+      k.dx0dR2[d][0][1]+=N2[n][0][1]*x0[n][d];
+      k.dx0dR2[d][1][0]+=N2[n][1][0]*x0[n][d];	    
+      k.dx0dR2[d][1][1]+=N2[n][1][1]*x0[n][d];
+    }
+  }
 
   //metric tensors A, a, aPre
   for(unsigned int i=0; i<2; i++){

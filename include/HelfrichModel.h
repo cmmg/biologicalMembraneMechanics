@@ -10,8 +10,6 @@ struct BVPStruct;
 template <class T>
 struct HelfrichModel{
   BVPStruct *bvp;
-  //model or history variables
-  T q;              //Lagrange multiplier 
   //stress and moment terms
   T sigma_contra[2][2], moment_contra[2][2];
 };
@@ -37,7 +35,7 @@ PetscErrorCode computeStress(KinematicsStruct<T>& k, HelfrichModel<T>& m)
   T Kappa=k.Kappa;
   T I1=k.I1;
   T J=k.J;
-  T q=m.q;
+  T q=k.q;
   
   //For Helfrich energy formulation
   for (unsigned int i=0; i<2; i++){

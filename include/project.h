@@ -7,7 +7,43 @@
 #define PROJECT_H_
 
 #undef __FUNCT__
-#define __FUNCT__ "FunctionL2"
+#define __FUNCT__ "FunctionFields"
+PetscErrorCode FunctionFields(IGAPoint p, const PetscScalar *U, PetscScalar *R, void *ctx)
+{
+  PetscFunctionBegin;
+  PetscErrorCode ierr;
+  BVPStruct *bvp = (BVPStruct *)ctx;
+  PetscInt nen, dof;
+  IGAPointGetSizes(p,0,&nen,&dof);
+
+  //get kinematic quantities
+  KinematicsStruct<PetscScalar> k;
+  getKinematics<PetscScalar>(p, U, U, k);
+
+  //L2 projection residual
+  const PetscReal (*N) = (const PetscReal (*)) p->shape[0];;  
+  for(int n1=0; n1<nen; n1++){
+    for(int d1=0; d1<dof; d1++){
+      PetscReal val=0.0;
+      switch (d1) {
+      case 0:
+	val=k.H; break;
+      case 1:
+	val=k.Kappa; break;
+      case 2:
+	val=k.I1; break;
+      case 3:
+	val=k.J; break;
+      }
+      R[n1*dof+d1] = N[n1]*val;
+    }
+  }
+  
+  PetscFunctionReturn(0);
+}
+
+#undef __FUNCT__
+#define __FUNCT__ "FunctionDirichletL2"
 PetscErrorCode FunctionDirichletL2(IGAPoint p, const PetscScalar *U, PetscScalar *R, void *ctx)
 {
   PetscFunctionBegin;
@@ -56,8 +92,8 @@ PetscErrorCode FunctionDirichletL2(IGAPoint p, const PetscScalar *U, PetscScalar
 }
 
 #undef __FUNCT__
-#define __FUNCT__ "FunctionR"
-PetscErrorCode FunctionR(IGAPoint p, const PetscScalar *U, PetscScalar *R, void *ctx)
+#define __FUNCT__ "FunctionReactions"
+PetscErrorCode FunctionReactions(IGAPoint p, const PetscScalar *U, PetscScalar *R, void *ctx)
 {
   PetscFunctionBegin;
   Residual(p, 0, 0, 0, U, 0, U, R, ctx);
@@ -137,8 +173,8 @@ PetscErrorCode ProjectL2(void *ctx)
 
 
 #undef __FUNCT__
-#define __FUNCT__ "ProjectR"
-PetscErrorCode ProjectR(Vec& U, void *ctx)
+#define __FUNCT__ "ProjectFields"
+PetscErrorCode ProjectFields(Vec& U, void *ctx)
 {
   PetscFunctionBegin;
   PetscErrorCode ierr;
@@ -157,32 +193,59 @@ PetscErrorCode ProjectR(Vec& U, void *ctx)
   
   //Solve L2 projection problem
   Mat A;
-  Vec b;
-  ierr = VecSet(bvp->xDirichlet,0.0);CHKERRQ(ierr);
+  Vec X, R;
+  Vec bx, br;
   ierr = IGACreateMat(bvp->iga,&A);CHKERRQ(ierr);
-  ierr = IGACreateVec(bvp->iga,&b);CHKERRQ(ierr);
+  ierr = IGACreateVec(bvp->iga,&X);CHKERRQ(ierr);
+  ierr = IGACreateVec(bvp->iga,&R);CHKERRQ(ierr);
+  ierr = IGACreateVec(bvp->iga,&bx);CHKERRQ(ierr);
+  ierr = IGACreateVec(bvp->iga,&br);CHKERRQ(ierr);
   ierr = MatSetOption(A,MAT_SYMMETRIC,PETSC_TRUE);CHKERRQ(ierr);
-  ierr = IGASetFormFunction(bvp->iga,FunctionR,bvp);CHKERRQ(ierr);
+  //Jacobian
   ierr = IGASetFormJacobian(bvp->iga,JacobianL2,bvp);CHKERRQ(ierr);
-  ierr = IGAComputeFunction(bvp->iga,U,b);CHKERRQ(ierr);
   ierr = IGAComputeJacobian(bvp->iga,U,A);CHKERRQ(ierr);
+  //Fields
+  ierr = IGASetFormFunction(bvp->iga,FunctionFields,bvp);CHKERRQ(ierr);
+  ierr = IGAComputeFunction(bvp->iga,U,bx);CHKERRQ(ierr);
+  //Reactions
+  ierr = IGASetFormFunction(bvp->iga,FunctionReactions,bvp);CHKERRQ(ierr);
+  ierr = IGAComputeFunction(bvp->iga,U,br);CHKERRQ(ierr);
   //Solver
   {
     KSP ksp;
     ierr = IGACreateKSP(bvp->iga,&ksp);CHKERRQ(ierr);
     ierr = KSPSetOperators(ksp,A,A);CHKERRQ(ierr);
     ierr = KSPSetFromOptions(ksp);CHKERRQ(ierr);
-    ierr = KSPSolve(ksp,b,bvp->xDirichlet);CHKERRQ(ierr);
+    ierr = KSPSolve(ksp,bx,X);CHKERRQ(ierr); //Project fields
+    ierr = KSPSolve(ksp,br,R);CHKERRQ(ierr); //Project reactions
     ierr = KSPDestroy(&ksp);CHKERRQ(ierr);
   }
-  
+  //write to vtk files
   char           filename[256];
-  sprintf(filename,"./reaction%d.vts",bvp->load_increment);
-  ierr = IGADrawVecVTK(bvp->iga,bvp->xDirichlet,filename);CHKERRQ(ierr);
-  
-  ierr = VecDestroy(&b);CHKERRQ(ierr);
+  //write fields
+  sprintf(filename,"./fields%d.vts",bvp->load_increment);
+  DMDASetFieldName(bvp->iga->draw_dm,0,"H");
+  DMDASetFieldName(bvp->iga->draw_dm,1,"K");
+  DMDASetFieldName(bvp->iga->draw_dm,2,"I1");
+#ifdef LagrangeMultiplierMethod
+  DMDASetFieldName(bvp->iga->draw_dm,3,"J");
+#endif
+  ierr = IGADrawVecVTK(bvp->iga,X,filename);CHKERRQ(ierr);
+  //write reactions
+  sprintf(filename,"./reactions%d.vts",bvp->load_increment);
+  DMDASetFieldName(bvp->iga->draw_dm,0,"Rx");
+  DMDASetFieldName(bvp->iga->draw_dm,1,"Ry");
+  DMDASetFieldName(bvp->iga->draw_dm,2,"Rz");
+#ifdef LagrangeMultiplierMethod
+  DMDASetFieldName(bvp->iga->draw_dm,3,"none");
+#endif 
+  ierr = IGADrawVecVTK(bvp->iga,R,filename);CHKERRQ(ierr);
+  //
+  ierr = VecDestroy(&bx);CHKERRQ(ierr);
+  ierr = VecDestroy(&br);CHKERRQ(ierr);
+  ierr = VecDestroy(&X);CHKERRQ(ierr);
+  ierr = VecDestroy(&R);CHKERRQ(ierr);
   ierr = MatDestroy(&A);CHKERRQ(ierr);
-  
   PetscFunctionReturn(0);
 }
 

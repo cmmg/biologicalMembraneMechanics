@@ -188,18 +188,18 @@ int main(int argc, char *argv[]) {
     std::cout << std::endl;
   }
   
-  
   //solutions vectors
   Vec U;
   ierr = IGACreateVec(bvp.iga,&U);CHKERRQ(ierr);
   ierr = VecSet(U,0.0);CHKERRQ(ierr);
+  ierr = IGADrawVecVTK(iga,U,"mesh.vts");CHKERRQ(ierr);
   ierr = IGACreateVec(bvp.iga,&bvp.xDirichlet);CHKERRQ(ierr);
   //
   ierr = IGASetFormIEFunction(bvp.iga,Residual,&bvp);CHKERRQ(ierr);
   ierr = IGASetFormIEJacobian(bvp.iga,Jacobian,&bvp);CHKERRQ(ierr);
   //
   setBCs(bvp, 0, 0.0);
-  
+
   //load stepping
   TS ts;
   PetscInt timeSteps=numLoadSteps;

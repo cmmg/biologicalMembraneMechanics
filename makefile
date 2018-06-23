@@ -10,7 +10,8 @@ mpicxx -o $fileName $fileName.o -Wl,-rpath,$PETIGA_DIR/$PETSC_ARCH/lib -L$PETIGA
 
 #mpiexec -np 4 ./$fileName -iga_view -ts_monitor -snes_monitor -ksp_type preonly -pc_type lu -pc_factor_mat_solver_package mumps -ts_adapt_type none -iga_rule_size 4 -iga_geometry mesh.dat 
 #-iga_periodic 0,1
-mpiexec -np 4 ./$fileName -iga_view -ts_monitor -snes_monitor -ksp_type preonly -pc_type lu -pc_factor_mat_solver_package mumps -ts_adapt_type none -ts_max_snes_failures 500 -snes_max_it 100 -snes_max_funcs 50000 -snes_type newtontr
+mpiexec -np 4 ./$fileName -iga_view -ts_monitor -snes_monitor -ksp_type preonly -pc_type lu -pc_factor_mat_solver_package mumps -ts_adapt_type none -ts_max_snes_failures 500 -snes_max_it 100 -snes_max_funcs 50000 -snes_type newtontr 
+#-snes_atol 1.0e-12 -snes_rtol 1.0e-10 -snes_stol 1.0e-12 
 #-iga_geometry mesh.dat 
 #-iga_periodic 0,1
 #-ts_max_snes_failures 500 -snes_max_it 100 -snes_max_funcs 50000 -snes_type newtontr

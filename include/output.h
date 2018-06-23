@@ -17,11 +17,18 @@ PetscErrorCode OutputMonitor(TS ts,PetscInt it_number,PetscReal c_time,Vec U,voi
   BVPStruct *bvp = (BVPStruct *)ctx;
   char           filename[256];
   sprintf(filename,"./solution%d.vts",it_number);
+  DMDASetFieldName(bvp->iga->draw_dm,0,"Ux");
+  DMDASetFieldName(bvp->iga->draw_dm,1,"Uy");
+  DMDASetFieldName(bvp->iga->draw_dm,2,"Uz");
+#ifdef LagrangeMultiplierMethod
+  DMDASetFieldName(bvp->iga->draw_dm,3,"q");
+#endif
   ierr = IGADrawVecVTK(bvp->iga,U,filename);CHKERRQ(ierr);
+  //
   bvp->c_time=c_time;
   bvp->load_increment=it_number;
-  //project and output reaction forces
-  ProjectR(U, ctx);
+  //project and output fields and reaction forces
+  ProjectFields(U, ctx);
   //setup BCs for next load increment 
   setBCs(*bvp, it_number, c_time);
   //
