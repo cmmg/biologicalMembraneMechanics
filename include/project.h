@@ -60,7 +60,7 @@ PetscErrorCode FunctionDirichletL2(IGAPoint p, const PetscScalar *U, PetscScalar
 PetscErrorCode FunctionR(IGAPoint p, const PetscScalar *U, PetscScalar *R, void *ctx)
 {
   PetscFunctionBegin;
-  ResidualFunction<PetscReal>(p, 0, 0, 0, U, 0, 0, R, ctx);
+  ResidualFunction<PetscReal>(p, 0, 0, 0, U, 0, U, R, ctx);
   PetscFunctionReturn(0);
 }
 

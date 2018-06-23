@@ -15,6 +15,9 @@ struct BVPStruct{
   //
   PetscReal kMean, kGaussian, mu; //material modulus
   PetscReal lambda;   //penalty parameter for enforcing incompressibility
+  PetscReal surfaceTensionAtBase;
+  //
+  PetscInt stabilization;
   //B.C's
   PetscInt type;
   PetscReal uDirichlet;
@@ -54,16 +57,19 @@ PetscErrorCode ResidualFunction(IGAPoint p,
   const PetscReal (*X)[3] = (const PetscReal (*)[3]) p->geometry;
 
   //get x, q
-  T x[nen][3];
+  T x[nen][3]; double x0[nen][3];
 #ifdef LagrangeMultiplierMethod
   T (*u)[3+1] = (T (*)[3+1])tempU;
+  double (*u0)[3+1] = (double (*)[3+1])tempU0;
   T q=0.0; //q is the Lagrange multiplier value at this point
 #else
   T (*u)[3] = (T (*)[3])tempU;
+  double (*u0)[3] = (double (*)[3])tempU0;
 #endif
   for(unsigned int n=0; n<(unsigned int) nen; n++){
     for(unsigned int d=0; d<3; d++){
       x[n][d]= X[n][d]+ u[n][d];
+      x0[n][d]= X[n][d]+ u0[n][d];
     }
 #ifdef LagrangeMultiplierMethod
     q+=N[n]*u[n][3];
@@ -81,6 +87,9 @@ PetscErrorCode ResidualFunction(IGAPoint p,
     k.dxdR[d][0]=k.dxdR[d][1]=0.0;
     k.dxdR2[d][0][0]=k.dxdR2[d][0][1]=0.0;
     k.dxdR2[d][1][0]=k.dxdR2[d][1][1]=0.0;
+    k.dx0dR[d][0]=k.dx0dR[d][1]=0.0;
+    k.dx0dR2[d][0][0]=k.dx0dR2[d][0][1]=0.0;
+    k.dx0dR2[d][1][0]=k.dx0dR2[d][1][1]=0.0;
     for(unsigned int n=0; n<(unsigned int) nen; n++){
       k.dXdR[d][0]+=N1[n][0]*X[n][d];
       k.dXdR[d][1]+=N1[n][1]*X[n][d];
@@ -95,6 +104,13 @@ PetscErrorCode ResidualFunction(IGAPoint p,
       k.dxdR2[d][0][1]+=N2[n][0][1]*x[n][d];
       k.dxdR2[d][1][0]+=N2[n][1][0]*x[n][d];	    
       k.dxdR2[d][1][1]+=N2[n][1][1]*x[n][d];
+      //
+      k.dx0dR[d][0]+=N1[n][0]*x0[n][d];
+      k.dx0dR[d][1]+=N1[n][1]*x0[n][d];
+      k.dx0dR2[d][0][0]+=N2[n][0][0]*x0[n][d];
+      k.dx0dR2[d][0][1]+=N2[n][0][1]*x0[n][d];
+      k.dx0dR2[d][1][0]+=N2[n][1][0]*x0[n][d];	    
+      k.dx0dR2[d][1][1]+=N2[n][1][1]*x0[n][d];
     }
   }
 
@@ -104,34 +120,88 @@ PetscErrorCode ResidualFunction(IGAPoint p,
   //get stress
   HelfrichModel<T> m;
   m.bvp=bvp;
+#ifdef LagrangeMultiplierMethod
   m.q=q;
+#endif
   computeStress(k, m);
+
+  //Add stabilization
+  PetscReal mu=bvp->mu;
+  T J=k.J;
+  T sigma_contra_inPlane[2][2], sigma_contra_outPlane[2][2];
+  T sigma_contra_StabilizationTerm;
+  for (unsigned int i=0; i<2; i++){
+    for (unsigned int j=0; j<2; j++){
+      sigma_contra_inPlane[i][j]=m.sigma_contra[i][j];
+      sigma_contra_outPlane[i][j]=m.sigma_contra[i][j];
+      //stabization terms
+      switch (bvp->stabilization) {
+      case 0: //A method
+	sigma_contra_StabilizationTerm=(mu/(J))*(k.A_contra[i][j]-k.a_contra[i][j]); 
+	sigma_contra_outPlane[i][j]+=sigma_contra_StabilizationTerm; break;
+      case 1: //A-t method
+	sigma_contra_StabilizationTerm=(mu/(J))*(k.A_contra[i][j]-k.a_contra[i][j]); 
+	sigma_contra_inPlane[i][j]+=sigma_contra_StabilizationTerm;
+	sigma_contra_outPlane[i][j]+=sigma_contra_StabilizationTerm; break;
+      case 2: //A-s method
+	sigma_contra_StabilizationTerm=(mu/(J*J))*(k.A_contra[i][j]-0.5*k.I1*k.a_contra[i][j]); 
+	sigma_contra_outPlane[i][j]+=sigma_contra_StabilizationTerm; break;
+      case 3: //A-st method
+	sigma_contra_StabilizationTerm=(mu/(J*J))*(k.A_contra[i][j]-0.5*k.I1*k.a_contra[i][j]); 
+	sigma_contra_inPlane[i][j]+=sigma_contra_StabilizationTerm;
+	sigma_contra_outPlane[i][j]+=sigma_contra_StabilizationTerm; break;
+      case 4: //a method
+	sigma_contra_StabilizationTerm=(mu/(J))*(k.aPre_contra[i][j]-k.a_contra[i][j]); 
+	sigma_contra_outPlane[i][j]+=sigma_contra_StabilizationTerm; break;
+      case 5: //a-t method
+	sigma_contra_StabilizationTerm=(mu/(J))*(k.aPre_contra[i][j]-k.a_contra[i][j]); 
+	sigma_contra_inPlane[i][j]+=sigma_contra_StabilizationTerm;
+	sigma_contra_outPlane[i][j]+=sigma_contra_StabilizationTerm; break;
+      case 6: //a-s method
+	sigma_contra_StabilizationTerm=(mu/(k.JPre*k.JPre))*(k.aPre_contra[i][j]-0.5*k.I1Pre*k.a_contra[i][j]); 
+	sigma_contra_outPlane[i][j]+=sigma_contra_StabilizationTerm; break;
+      case 7: //a-st method
+	sigma_contra_StabilizationTerm=(mu/(k.JPre*k.JPre))*(k.aPre_contra[i][j]-0.5*k.I1Pre*k.a_contra[i][j]); 
+	sigma_contra_inPlane[i][j]+=sigma_contra_StabilizationTerm;
+	sigma_contra_outPlane[i][j]+=sigma_contra_StabilizationTerm; break;
+      }
+    }
+  }
   
   //
   bool surfaceFlag=p->atboundary;
   PetscReal *boundaryNormal = p->normal;
   PetscReal pCoords[3]; IGAPointFormGeomMap(p,pCoords);
+  PetscReal tempR=std::sqrt(pCoords[0]*pCoords[0]+pCoords[2]*pCoords[2]);
+  if (tempR==0){tempR=1.0;}
+  PetscReal nValue[3]={pCoords[0]/tempR, 0, pCoords[2]/tempR}; 
   
   //Residual
   PetscReal L=bvp->l;
   PetscReal K=bvp->kMean;
   PetscReal Epsilon=bvp->epsilon;
-  T J=k.J;
   if (!surfaceFlag) {
     for (unsigned int n=0; n<(unsigned int)nen; n++) {
       for (unsigned int i=0; i<3; i++){
-	T Ru_i=0.0;
-	for (unsigned int j=0; j<2; j++){
-	  for (unsigned int z=0; z<2; z++){
+	T sigma_in=0.0, sigma_out=0.0, moment=0.0;
+	for (unsigned int a=0; a<2; a++){
+	  for (unsigned int b=0; b<2; b++){
 	    //sigma*grad(Na)*dxdR*J
-	    Ru_i += (L*L/K)*m.sigma_contra[j][z]*N1[n][j]*k.dxdR[i][z]*J;
+	    sigma_in+=sigma_contra_inPlane[a][b]*N1[n][a]*k.dxdR[i][b];
+	    T temp_ab=0.0;
+	    for (unsigned int j=0; j<2; j++){
+	      temp_ab+=k.normal[j]*k.dxdR2[j][a][b];
+	    }
+	    sigma_in+=sigma_contra_inPlane[a][b]*N[n]*k.normal[i]*temp_ab; //in plane components
+	    sigma_out+=-sigma_contra_outPlane[a][b]*N[n]*k.normal[i]*temp_ab; //out of plane components
 	    //M*(hess(Na)-Gamma*grad(Na))*n*J
-	    Ru_i += (L/K)*m.moment_contra[j][z]*(N2[n][j][z])*k.normal[i]*J;
+	    moment += m.moment_contra[a][b]*(N2[n][a][b])*k.normal[i];
 	    for (unsigned int l=0; l<2; l++){
-	      Ru_i += -(L/K)*m.moment_contra[j][z]*(k.Gamma[l][j][z]*N1[n][l])*k.normal[i]*J;
+	      moment += -m.moment_contra[a][b]*(k.Gamma[l][a][b]*N1[n][l])*k.normal[i];
 	    }
 	  }
 	}
+	T Ru_i = ((L*L)/K)*(sigma_in+sigma_out)*J+(L/K)*moment*J;
 	//
 	/*
 	bool isCollar=false;
@@ -168,6 +238,7 @@ PetscErrorCode ResidualFunction(IGAPoint p,
 	    }
 	  }  
 	}
+	Ru_i+= -N[n]*nValue[i]*bvp->surfaceTensionAtBase*J;
 	R[n*dof+i] = Ru_i; 
       }
 #ifdef LagrangeMultiplierMethod

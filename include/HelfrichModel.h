@@ -47,7 +47,6 @@ PetscErrorCode computeStress(KinematicsStruct<T>& k, HelfrichModel<T>& m)
 #else
       sigma_contra[i][j]=(lambda*(J-1.0) + K*dH*dH - KGaussian*Kappa)*k.a_contra[i][j]-2*K*dH*k.b_contra[i][j];
 #endif
-      sigma_contra[i][j]+=(mu/(J*J))*(k.A_contra[i][j]-0.5*I1*k.a_contra[i][j]); //stabilization term
       moment_contra[i][j]=(K*dH + 2*KGaussian*H)*k.a_contra[i][j]-KGaussian*k.b_contra[i][j];
     }
   }

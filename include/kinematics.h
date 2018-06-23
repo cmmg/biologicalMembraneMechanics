@@ -26,6 +26,10 @@ struct  KinematicsStruct{
   T I1;
   double H0;
   T H, Kappa;
+  //stabilization related quatities
+  double dx0dR[3][2], dx0dR2[3][2][2];
+  double aPre[2][2], aPre_contra[2][2];
+  T JPre, I1Pre;
 };
 
 
@@ -35,24 +39,28 @@ template <class T>
 PetscErrorCode getKinematics(KinematicsStruct<T>& k){
   PetscFunctionBegin;
 
-  //metric tensors A, a
+  //metric tensors A, a, aPre
   for(unsigned int i=0; i<2; i++){
     for(unsigned int j=0; j<2; j++){
       k.A[i][j]=0.0;
       k.a[i][j]=0.0;
+      k.aPre[i][j]=0.0;
       for(unsigned int d=0; d<3; d++){
 	k.A[i][j]+=k.dXdR[d][i]*k.dXdR[d][j];
 	k.a[i][j]+=k.dxdR[d][i]*k.dxdR[d][j];
+	k.aPre[i][j]+=k.dx0dR[d][i]*k.dx0dR[d][j];
       }
     }
   }
 
   //Jacobians
-  T J, J_a; double J_A;
+  T J_a; double J_A, J_aPre;
   J_A=std::sqrt(k.A[0][0]*k.A[1][1]-k.A[0][1]*k.A[1][0]);
   J_a=std::sqrt(k.a[0][0]*k.a[1][1]-k.a[0][1]*k.a[1][0]);
+  J_aPre=std::sqrt(k.aPre[0][0]*k.aPre[1][1]-k.aPre[0][1]*k.aPre[1][0]);
   if (J_A<=0.0) {std::cout << "negative jacobian\n";  exit(-1);}
-  J=J_a/J_A; k.J=J;
+  k.J=J_a/J_A;
+  k.JPre=J_a/J_aPre;
   
   //surface normals
   k.normal[0]=(k.dxdR[1][0]*k.dxdR[2][1]-k.dxdR[2][0]*k.dxdR[1][1])/J_a;
@@ -77,12 +85,15 @@ PetscErrorCode getKinematics(KinematicsStruct<T>& k){
   T det_a=k.a[0][0]*k.a[1][1]-k.a[0][1]*k.a[1][0];
   T det_b=k.b[0][0]*k.b[1][1]-k.b[0][1]*k.b[1][0];
   double det_A=k.A[0][0]*k.A[1][1]-k.A[0][1]*k.A[1][0];
+  double det_aPre=k.aPre[0][0]*k.aPre[1][1]-k.aPre[0][1]*k.aPre[1][0];
   
-  //contra-variant metric tensors, a_contra, A_contra.
+  //contra-variant metric tensors, a_contra, A_contra, aPre_contra.
   k.a_contra[0][0]=k.a[1][1]/det_a; k.a_contra[1][1]=k.a[0][0]/det_a;
   k.a_contra[0][1]=-k.a[0][1]/det_a; k.a_contra[1][0]=-k.a[1][0]/det_a;
   k.A_contra[0][0]=k.A[1][1]/det_A; k.A_contra[1][1]=k.A[0][0]/det_A;
   k.A_contra[0][1]=-k.A[0][1]/det_A; k.A_contra[1][0]=-k.A[1][0]/det_A;
+  k.aPre_contra[0][0]=k.aPre[1][1]/det_aPre; k.aPre_contra[1][1]=k.aPre[0][0]/det_aPre;
+  k.aPre_contra[0][1]=-k.aPre[0][1]/det_aPre; k.aPre_contra[1][0]=-k.aPre[1][0]/det_aPre;
   for(unsigned int d=0; d<3; d++){
     k.dxdR_contra[d][0]=k.a_contra[0][0]*k.dxdR[d][0]+k.a_contra[0][1]*k.dxdR[d][1];
     k.dxdR_contra[d][1]=k.a_contra[1][0]*k.dxdR[d][0]+k.a_contra[1][1]*k.dxdR[d][1];
@@ -115,13 +126,15 @@ PetscErrorCode getKinematics(KinematicsStruct<T>& k){
   }
 
   //invariants of the Green-Lagrange strain, C
-  T I1=0.0;
+  T I1=0.0, I1Pre=0.0;
   for(unsigned int i=0; i<2; i++){
     for(unsigned int j=0; j<2; j++){
       I1+=k.A_contra[i][j]*k.a[i][j];
+      I1Pre+=k.aPre_contra[i][j]*k.a[i][j];
     }
   }
   k.I1=I1;
+  k.I1Pre=I1Pre;
   
   //mean curvature: H
   T H=0; PetscReal H0=0.0;

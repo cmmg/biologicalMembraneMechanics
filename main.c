@@ -10,7 +10,7 @@
 #include <Sacado.hpp>
 typedef Sacado::Fad::DFad<double> doubleAD;
 
-#define LagrangeMultiplierMethod
+//#define LagrangeMultiplierMethod
 
 #include "include/residual.h"
 #include "include/project.h"
@@ -18,8 +18,9 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 #include "include/solvers.h"
 
 //parameters
-#define bvpType 3
-#define numLoadSteps 100 
+#define bvpType 0
+#define stabilizationMethod 7
+#define numLoadSteps 100
 
 #undef  __FUNCT__
 #define __FUNCT__ "setBCs"
@@ -97,13 +98,14 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     break;
 
   case 3: //pulling flat membrane BVP. AKA baseCircle BVP.
+    bvp.surfaceTensionAtBase=300;
      //Dirichlet
     ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the baseCircle
     ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the baseCircle
     ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the baseCircle
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,0.0);CHKERRQ(ierr); //X=0 at the bottom of the baseCircle
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,0.0);CHKERRQ(ierr); //Z=0 at the bottom of the baseCircle
-    double pullHeight=0.1*c_time*bvp.l*1.0;
+    //ierr = IGASetBoundaryValue(bvp.iga,0,0,0,0.0);CHKERRQ(ierr); //X=0 at the bottom of the baseCircle
+    //ierr = IGASetBoundaryValue(bvp.iga,0,0,2,0.0);CHKERRQ(ierr); //Z=0 at the bottom of the baseCircle
+    double pullHeight=c_time*10*bvp.l*1.0;
     ierr = IGASetBoundaryValue(bvp.iga,0,1,1,pullHeight);CHKERRQ(ierr); //Y=0 at the bottom of the baseCircle
     
     //Neumann
@@ -133,8 +135,10 @@ int main(int argc, char *argv[]) {
   bvp.kGaussian=0.0;
   bvp.mu=1.0;
   bvp.lambda=1000;
+  bvp.surfaceTensionAtBase=0;
   bvp.epsilon=0*1.0;
   bvp.type=bvpType;
+  bvp.stabilization=stabilizationMethod;
   bvp.c_time=0.0;
   
 #ifdef LagrangeMultiplierMethod
