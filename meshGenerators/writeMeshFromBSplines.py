@@ -8,9 +8,10 @@ from math import pi as Pi
 from numpy import linspace
 
 #BSpline files
-circleFileName='circle80.mat';
-splineFileName='baseCircleTrimmed80.mat'
-outputFileName='baseCircleTrimmedMeshr80h80.dat'
+circleFileName='circle40.mat';
+splineFileName='capTrimmed80.mat'
+outputFileName='capTrimmedMeshr40h80C1.dat'
+C2Continuity=False;
 
 #Read from mat file
 mat = scipy.io.loadmat(splineFileName)
@@ -40,8 +41,13 @@ print S.knots[1];
 #S.refine(1,kX);
 #S.insert(1,0.5,1)
 #S.rotate(1,0.5*Pi)
+if C2Continuity:
+    S.elevate(0,1); S.elevate(1,1);
+    S.unclamp(1, continuity=2);
+else:
+    S.unclamp(1, continuity=1);
 
-S.unclamp(1, continuity=1);
+#
 from igakit.io import PetIGA
 PetIGA().write(outputFileName, S, nsd=3)
 

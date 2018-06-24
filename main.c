@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
   ierr = IGAAxisSetPeriodic(iga->axis[1],PETSC_TRUE);CHKERRQ(ierr);
   switch (bvp.type) {
   case 0: //cap BVP
-    ierr = IGARead(iga,"meshes/capMeshr80h40.dat"); CHKERRQ(ierr); break;
+    ierr = IGARead(iga,"meshes/capTrimmedMeshr80h160C2.dat"); CHKERRQ(ierr); break;
   case 1: //tube BVP
     ierr = IGARead(iga,"meshes/tubeMesh.dat"); CHKERRQ(ierr); break;
   case 2: //base BVP

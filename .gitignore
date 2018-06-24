@@ -33,5 +33,5 @@ build
 simulations*
 L2Projection
 .DS_Store
-#meshGenerators/*.dat
+meshGenerators/*.dat
 U-R.txt
