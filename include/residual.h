@@ -5,7 +5,6 @@
 #if !defined(RESIDUAL_H_)
 #define RESIDUAL_H_
 #include "kinematics.h"
-#include "HelfrichModel.h"
 
 #define PI 3.14159
 
@@ -33,6 +32,8 @@ struct BVPStruct{
   bool isProc0;
   FILE * fileForUROutout;
 };
+
+#include "HelfrichModel.h"
 
 #undef  __FUNCT__
 #define __FUNCT__ "ResidualFunction"

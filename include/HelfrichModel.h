@@ -52,4 +52,31 @@ PetscErrorCode computeStress(KinematicsStruct<T>& k, HelfrichModel<T>& m)
   PetscFunctionReturn(0);
 }
 
+#undef  __FUNCT__
+#define __FUNCT__ "computeEnergy"
+PetscErrorCode computeEnergy(KinematicsStruct<PetscScalar>& k, HelfrichModel<PetscScalar>& m, PetscScalar *energy){
+  PetscFunctionBegin;
+  
+  //model variables
+  double K=m.bvp->kMean;
+  double KGaussian=m.bvp->kGaussian;
+  double mu=m.bvp->mu;
+  double lambda=m.bvp->lambda;
+  double H=k.H;
+  double dH=(k.H) - (k.H0);
+  double Kappa=k.Kappa;
+  double I1=k.I1;
+  double J=k.J;
+  double q=k.q;
+  
+  //For Helfrich energy formulation
+  energy[0]=(K*dH*dH+KGaussian*Kappa)*J; //bending energy
+#ifdef LagrangeMultiplierMethod
+  energy[1]=q*(J-1)*J; //tension energy for Lagrange multiplier method
+#else
+  energy[1]=0.5*lambda*(J-1)*(J-1); //tension energy for penalty method
+#endif
+  PetscFunctionReturn(0);
+}
+
 #endif

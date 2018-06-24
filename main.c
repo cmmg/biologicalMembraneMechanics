@@ -205,7 +205,10 @@ int main(int argc, char *argv[]) {
   setBCs(bvp, 0, 0.0);
   
   //open file for U,R output
-  if (bvp.isProc0){bvp.fileForUROutout=fopen ("U-R.txt","w");}
+  if (bvp.isProc0){
+    bvp.fileForUROutout=fopen ("U-R.txt","w");
+    fprintf (bvp.fileForUROutout, "%12s, %12s, %12s, %12s\n", "U", "R", "E1", "E2");
+  }
   
   //load stepping
   TS ts;

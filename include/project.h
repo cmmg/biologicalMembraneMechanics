@@ -7,6 +7,25 @@
 #define PROJECT_H_
 
 #undef __FUNCT__
+#define __FUNCT__ "FunctionEnergy"
+PetscErrorCode FunctionEnergy(IGAPoint p,const PetscScalar *U,PetscInt n,PetscScalar *energy,void *ctx){
+  PetscFunctionBegin;
+  BVPStruct *bvp = (BVPStruct *)ctx;
+
+  //get kinematic quantities
+  KinematicsStruct<PetscScalar> k;
+  getKinematics<PetscScalar>(p, U, U, k);
+
+  //energy
+  HelfrichModel<PetscScalar> m;
+  m.bvp=bvp;
+  computeEnergy(k,m,energy);
+
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
 #define __FUNCT__ "FunctionFields"
 PetscErrorCode FunctionFields(IGAPoint p, const PetscScalar *U, PetscScalar *R, void *ctx)
 {
@@ -337,12 +356,18 @@ PetscErrorCode ProjectFields(Vec& U, void *ctx)
   double uVal=0.0, rVal=0.0;
   VecNorm(UAtBase,NORM_INFINITY,&uVal);
   VecNorm(R,NORM_INFINITY,&rVal);
+  
+  //Get energy values
+  PetscScalar    energy[2] = {0,0};
+  ierr = IGAComputeScalar(bvp->iga,U,2,&energy[0],FunctionEnergy,ctx);CHKERRQ(ierr);
+
+  //
   if (bvp->isProc0){
-    printf ("Reactions: UDirichlet: %12.6e, R: %12.6e\n", std::abs(uVal), std::abs(rVal));
-    fprintf (bvp->fileForUROutout, "%12.6e, %12.6e\n", std::abs(uVal), std::abs(rVal));
+    printf ("Stats: UDirichlet: %12.5e, R: %12.5e, E1: %12.5e, E2: %12.5e\n", std::abs(uVal), std::abs(rVal), (double)energy[0], (double)energy[1]);
+    fprintf (bvp->fileForUROutout, "%12.5e, %12.5e, %12.5e, %12.5e\n", std::abs(uVal), std::abs(rVal), (double)energy[0], (double)energy[1]);
     fflush(bvp->fileForUROutout);
   }
-  
+   
   ierr = VecDestroy(&bx);CHKERRQ(ierr);
   ierr = VecDestroy(&br);CHKERRQ(ierr);
   ierr = VecDestroy(&bUAtBase);CHKERRQ(ierr);
