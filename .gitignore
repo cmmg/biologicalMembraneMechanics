@@ -23,7 +23,6 @@ cmake_install.cmake
 *avi
 *mpeg
 *mp4
-*mat
 main
 results*
 *.o*
