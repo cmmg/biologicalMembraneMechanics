@@ -17,9 +17,9 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 #include "include/solvers.h"
 
 //parameters
-#define bvpType 0
+#define bvpType 1
 #define stabilizationMethod 7
-#define numLoadSteps 100
+#define numLoadSteps 1000
 
 #undef  __FUNCT__
 #define __FUNCT__ "setBCs"
@@ -49,6 +49,7 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
   //Dirichlet and Neumann BC's
   switch (bvp.type) {
   case 0: //cap BVP
+    std::cout << "capBVP\n";
     bvp.uDirichlet=-c_time*bvp.l*1.0; //X=Z=uDirichlet at the bottom of the cap (displacement control)
     ProjectL2(&bvp);
   
@@ -61,7 +62,7 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
    
     //Neumann
     ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the bottom of the cap
-    ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr); //phi=0  at the top of the cap
+    ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_FALSE);CHKERRQ(ierr); //phi=0  at the top of the cap
     bvp.angleConstraints[0]=true; bvp.angleConstraintValues[0]=90;
     bvp.angleConstraints[1]=false; bvp.angleConstraintValues[1]=0;
     bvp.epsilon=1.0;
@@ -71,48 +72,32 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     break;
     
   case 1: //tube BVP
-    //Dirichlet
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the tube
-    ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the tube
-    ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the tube
+    bvp.uDirichlet=-c_time*bvp.l*1.0; //X=Z=uDirichlet at the bottom of the cap (displacement control)
+    ProjectL2(&bvp);
     
+    //Dirichlet
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the cap
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the cap
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the cap
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the cap
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); //Init for X=uDirichlet at the bottom of the cap
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr); //Init foe Z=uDirichlet at the bottom of the cap
+   
     //Neumann
-    ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the bottom of the tube
-    ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the top of the tube
+    ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the bottom of the cap
+    ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_FALSE);CHKERRQ(ierr); //phi=0  at the top of the cap
     bvp.angleConstraints[0]=true; bvp.angleConstraintValues[0]=90;
-    bvp.angleConstraints[1]=true; bvp.angleConstraintValues[1]=90;
+    bvp.angleConstraints[1]=false; bvp.angleConstraintValues[1]=0;
+    bvp.epsilon=1.0;
+    
+    //Non-homogeneous Dirichlet BC values
+    ierr = IGASetFixTable(bvp.iga,bvp.xDirichlet);CHKERRQ(ierr);    /* Set vector to read BCs from */
     break;
     
   case 2: //base BVP
-    //Dirichlet
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,0.0);CHKERRQ(ierr); //X=0 at the bottom of the base
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the base
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,0.0);CHKERRQ(ierr); //Z=0 at the bottom of the base
-    //ierr = IGASetBoundaryValue(bvp.iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the base
-    
-    //Neumann
-    ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=0 at the bottom of the base
-    ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the top of the base
-    bvp.angleConstraints[0]=true; bvp.angleConstraintValues[0]=0;
-    bvp.angleConstraints[1]=true; bvp.angleConstraintValues[1]=90;
     break;
 
   case 3: //pulling flat membrane BVP. AKA baseCircle BVP.
-    bvp.surfaceTensionAtBase=300;
-     //Dirichlet
-    ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the baseCircle
-    ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the baseCircle
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the baseCircle
-    //ierr = IGASetBoundaryValue(bvp.iga,0,0,0,0.0);CHKERRQ(ierr); //X=0 at the bottom of the baseCircle
-    //ierr = IGASetBoundaryValue(bvp.iga,0,0,2,0.0);CHKERRQ(ierr); //Z=0 at the bottom of the baseCircle
-    double pullHeight=c_time*10*bvp.l*1.0;
-    ierr = IGASetBoundaryValue(bvp.iga,0,1,1,pullHeight);CHKERRQ(ierr); //Y=0 at the bottom of the baseCircle
-    
-    //Neumann
-    ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the bottom of the cap
-    ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr); //phi=0  at the top of the cap
-    bvp.angleConstraints[0]=false; bvp.angleConstraintValues[0]=90;
-    bvp.angleConstraints[1]=false; bvp.angleConstraintValues[1]=0;
     break;
   }
   //
@@ -158,9 +143,9 @@ int main(int argc, char *argv[]) {
   ierr = IGAAxisSetPeriodic(iga->axis[1],PETSC_TRUE);CHKERRQ(ierr);
   switch (bvp.type) {
   case 0: //cap BVP
-    ierr = IGARead(iga,"meshes/capTrimmedMeshr80h160C2.dat"); CHKERRQ(ierr); break;
+    ierr = IGARead(iga,"meshes/capTrimmedMeshr80h160C1.dat"); CHKERRQ(ierr); break;
   case 1: //tube BVP
-    ierr = IGARead(iga,"meshes/tubeMesh.dat"); CHKERRQ(ierr); break;
+    ierr = IGARead(iga,"meshes/tubeMeshr40h80C1.dat"); CHKERRQ(ierr); break;
   case 2: //base BVP
     ierr = IGARead(iga,"meshes/baseMesh.dat"); CHKERRQ(ierr); break;
   case 3: //baseCircle BVP
