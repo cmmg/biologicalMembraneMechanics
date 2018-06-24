@@ -30,7 +30,8 @@ struct BVPStruct{
   PetscReal c_time;
   PetscInt load_increment;
   //Output
-  bool projectBC;
+  bool isProc0;
+  FILE * fileForUROutout;
 };
 
 #undef  __FUNCT__

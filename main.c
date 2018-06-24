@@ -49,7 +49,7 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
   //Dirichlet and Neumann BC's
   switch (bvp.type) {
   case 0: //cap BVP
-    bvp.uDirichlet=-c_time*std::sqrt(2)*bvp.l*1.0; //X=Z=uDirichlet at the bottom of the cap (displacement control)
+    bvp.uDirichlet=-c_time*bvp.l*1.0; //X=Z=uDirichlet at the bottom of the cap (displacement control)
     ProjectL2(&bvp);
   
     //Dirichlet
@@ -124,6 +124,11 @@ int main(int argc, char *argv[]) {
   PetscErrorCode ierr;
   ierr = PetscInitialize(&argc,&argv,0,0);CHKERRQ(ierr);
 
+  //
+  PetscMPIInt rank,size;
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
+  
   //IGA and BVP setup
   IGA iga;
   ierr = IGACreate(PETSC_COMM_WORLD,&iga);CHKERRQ(ierr);
@@ -140,6 +145,8 @@ int main(int argc, char *argv[]) {
   bvp.type=bvpType;
   bvp.stabilization=stabilizationMethod;
   bvp.c_time=0.0;
+  if(rank == 0){bvp.isProc0=true;}
+  else {bvp.isProc0=false;}
   
 #ifdef LagrangeMultiplierMethod
   ierr = IGASetDof(iga,4);CHKERRQ(ierr); // dofs = {ux,uy,uz,q}
@@ -164,9 +171,6 @@ int main(int argc, char *argv[]) {
   bvp.iga = iga;
   
   //Print knots to output
-  PetscMPIInt rank,size;
-  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
   IGAAxis axisX;  
   ierr = IGAGetAxis(bvp.iga,0,&axisX);CHKERRQ(ierr);
   PetscInt mX; PetscReal* UX;
@@ -175,7 +179,7 @@ int main(int argc, char *argv[]) {
   ierr = IGAGetAxis(bvp.iga,1,&axisY);CHKERRQ(ierr);
   PetscInt mY; PetscReal* UY;
   IGAAxisGetKnots(axisY, &mY, &UY);
-  if(rank == size-1){
+  if(bvp.isProc0){
     std::cout << mX << " knotsX: ";
     for (unsigned int i=0; i<(mX+1); i++){
       std::cout << UX[i] << ", ";
@@ -199,7 +203,10 @@ int main(int argc, char *argv[]) {
   ierr = IGASetFormIEJacobian(bvp.iga,Jacobian,&bvp);CHKERRQ(ierr);
   //
   setBCs(bvp, 0, 0.0);
-
+  
+  //open file for U,R output
+  if (bvp.isProc0){bvp.fileForUROutout=fopen ("U-R.txt","w");}
+  
   //load stepping
   TS ts;
   PetscInt timeSteps=numLoadSteps;
@@ -222,6 +229,7 @@ int main(int argc, char *argv[]) {
 #endif
 
   //
+  if (bvp.isProc0){fclose(bvp.fileForUROutout);}
   ierr = VecDestroy(&U);CHKERRQ(ierr);
   ierr = TSDestroy(&ts);CHKERRQ(ierr);
   ierr = IGADestroy(&bvp.iga);CHKERRQ(ierr);

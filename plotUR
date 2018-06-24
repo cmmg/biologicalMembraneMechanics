@@ -1,0 +1,1 @@
+cat U-R.txt |gnuplot -p -e 'plot "/dev/stdin"'
