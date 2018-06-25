@@ -294,11 +294,11 @@ PetscErrorCode ProjectFields(Vec& U, void *ctx)
   char           filename[256];
   //write fields
   sprintf(filename,"./fields%d.vts",bvp->load_increment);
-  DMDASetFieldName(bvp->iga->draw_dm,0,"H");
-  DMDASetFieldName(bvp->iga->draw_dm,1,"K");
-  DMDASetFieldName(bvp->iga->draw_dm,2,"I1");
+  DMDASetFieldName(bvp->iga->draw_dm,0,"H"); VecStrideScale(X, 0, 1.0/bvp->lengthFactor);
+  DMDASetFieldName(bvp->iga->draw_dm,1,"K"); VecStrideScale(X, 1, 1.0/(bvp->lengthFactor*bvp->lengthFactor));
+  DMDASetFieldName(bvp->iga->draw_dm,2,"I1"); VecStrideScale(X, 2, 1.0);
 #ifdef LagrangeMultiplierMethod
-  DMDASetFieldName(bvp->iga->draw_dm,3,"J");
+  DMDASetFieldName(bvp->iga->draw_dm,3,"J"); VecStrideScale(X, 3, 1.0);
 #endif
   ierr = IGADrawVecVTK(bvp->iga,X,filename);CHKERRQ(ierr);
   //write reactions
@@ -308,7 +308,8 @@ PetscErrorCode ProjectFields(Vec& U, void *ctx)
   DMDASetFieldName(bvp->iga->draw_dm,2,"Rz");
 #ifdef LagrangeMultiplierMethod
   DMDASetFieldName(bvp->iga->draw_dm,3,"none");
-#endif 
+#endif
+  VecScale(R, bvp->forceFactor);
   ierr = IGADrawVecVTK(bvp->iga,R,filename);CHKERRQ(ierr);
   
   //write U-R data to file
@@ -363,8 +364,8 @@ PetscErrorCode ProjectFields(Vec& U, void *ctx)
 
   //
   if (bvp->isProc0){
-    printf ("Stats: UDirichlet: %12.5e, R: %12.5e, E1: %12.5e, E2: %12.5e\n", std::abs(uVal), std::abs(rVal), (double)energy[0], (double)energy[1]);
-    fprintf (bvp->fileForUROutout, "%12.5e, %12.5e, %12.5e, %12.5e\n", std::abs(uVal), std::abs(rVal), (double)energy[0], (double)energy[1]);
+    printf ("Stats: UDirichlet: %12.5e nm, R: %12.5e pN, E1: %12.5e pN-nm, E2: %12.5e pN-nm\n", bvp->lengthFactor*std::abs(uVal), bvp->forceFactor*std::abs(rVal), (double)bvp->energyFactor*energy[0], (double)bvp->energyFactor*energy[1]);
+    fprintf (bvp->fileForUROutout, "%12.5e, %12.5e, %12.5e, %12.5e\n", bvp->lengthFactor*std::abs(uVal), bvp->forceFactor*std::abs(rVal), (double)bvp->energyFactor*energy[0], (double)bvp->energyFactor*energy[1]);
     fflush(bvp->fileForUROutout);
   }
    

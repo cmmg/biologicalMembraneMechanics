@@ -11,6 +11,9 @@
 struct BVPStruct{
   IGA iga;
   //
+  PetscReal lengthFactor, kFactor;
+  PetscReal forceFactor, energyFactor;
+  //
   PetscReal l;       //characteristic length scale of the domain
   PetscReal epsilon; //penalty parameter for enforcing rotation BC's
   //

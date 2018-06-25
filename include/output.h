@@ -30,7 +30,7 @@ PetscErrorCode OutputMonitor(TS ts,PetscInt it_number,PetscReal c_time,Vec U,voi
 
   //project and output fields and reaction forces
   ProjectFields(U, ctx);
-
+  
   //setup BCs for next load increment 
   setBCs(*bvp, it_number, c_time);
   //

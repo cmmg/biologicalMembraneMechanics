@@ -17,7 +17,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 #include "include/solvers.h"
 
 //parameters
-#define bvpType 1
+#define bvpType 0
 #define stabilizationMethod 7
 #define numLoadSteps 1000
 
@@ -49,16 +49,15 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
   //Dirichlet and Neumann BC's
   switch (bvp.type) {
   case 0: //cap BVP
-    std::cout << "capBVP\n";
     bvp.uDirichlet=-c_time*bvp.l*1.0; //X=Z=uDirichlet at the bottom of the cap (displacement control)
     ProjectL2(&bvp);
   
     //Dirichlet
-    //ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the cap
-    //ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the cap
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the cap
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the cap
     ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the cap
     ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); //Init for X=uDirichlet at the bottom of the cap
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr); //Init foe Z=uDirichlet at the bottom of the cap
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr); //Init for Z=uDirichlet at the bottom of the cap
    
     //Neumann
     ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the bottom of the cap
@@ -120,16 +119,24 @@ int main(int argc, char *argv[]) {
   
   //setup BVP and material model parameters
   BVPStruct bvp;
-  bvp.l=1.0;
-  bvp.kMean=1.0;
-  bvp.kGaussian=0.0;
-  bvp.mu=1.0;
-  bvp.lambda=1000;
+  //non-dimentionalzation factors used for the pinching problems
+  bvp.lengthFactor=20.0; //20nm
+  bvp.kFactor=320.0; //320pN-nm
+  bvp.forceFactor=16.0; //16pN
+  bvp.energyFactor=320.0; //320pN-nm
+  //non-dimentionalized material constants
+  bvp.l=1.0;             
+  bvp.kMean=1.0;         //mean curvature modulus
+  bvp.kGaussian=0.0;     //Gaussian curvature modulus
+  bvp.mu=1.0;            //shear modulus for stabilization terms
+  bvp.lambda=100;        //penalty parameter
   bvp.surfaceTensionAtBase=0.0;
-  bvp.epsilon=0.0;
+  bvp.epsilon=0.0;       //penalty parameter for rotational constraints
   bvp.type=bvpType;
   bvp.stabilization=stabilizationMethod;
   bvp.c_time=0.0;
+
+  //processor zero for printing output in MPI jobs
   if(rank == 0){bvp.isProc0=true;}
   else {bvp.isProc0=false;}
   
@@ -143,9 +150,9 @@ int main(int argc, char *argv[]) {
   ierr = IGAAxisSetPeriodic(iga->axis[1],PETSC_TRUE);CHKERRQ(ierr);
   switch (bvp.type) {
   case 0: //cap BVP
-    ierr = IGARead(iga,"meshes/capTrimmedMeshr80h160C1.dat"); CHKERRQ(ierr); break;
+    ierr = IGARead(iga,"meshes/capTrimmedMeshr80h40C1.dat"); CHKERRQ(ierr); break;
   case 1: //tube BVP
-    ierr = IGARead(iga,"meshes/tubeMeshr40h80C1.dat"); CHKERRQ(ierr); break;
+    ierr = IGARead(iga,"meshes/tubeMeshr80h40C1.dat"); CHKERRQ(ierr); break;
   case 2: //base BVP
     ierr = IGARead(iga,"meshes/baseMesh.dat"); CHKERRQ(ierr); break;
   case 3: //baseCircle BVP
@@ -192,7 +199,7 @@ int main(int argc, char *argv[]) {
   //open file for U,R output
   if (bvp.isProc0){
     bvp.fileForUROutout=fopen ("U-R.txt","w");
-    fprintf (bvp.fileForUROutout, "%12s, %12s, %12s, %12s\n", "U", "R", "E1", "E2");
+    fprintf (bvp.fileForUROutout, "%12s, %12s, %12s, %12s\n", "U[nm]", "R[pN]", "E1[pN-nm]", "E2[pN-nm]");
   }
   
   //load stepping
