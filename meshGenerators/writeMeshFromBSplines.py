@@ -8,9 +8,9 @@ from math import pi as Pi
 from numpy import linspace
 
 #BSpline files
-circleFileName='circle80.mat';
-splineFileName='Fullcap40.mat'
-outputFileName='FullcapMeshr80h40C1.dat'
+circleFileName='circle160.mat';
+splineFileName='Fulltube160.mat'
+outputFileName='FulltubeMeshr160h160C1.dat'
 C2Continuity=False;
 
 #Read from mat file

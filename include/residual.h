@@ -34,6 +34,10 @@ struct BVPStruct{
   //Output
   bool isProc0;
   FILE * fileForUROutout;
+  //Force collar
+  bool isCollar, isCollarHelix;
+  PetscReal CollarRadius, CollarLocation;
+  PetscReal CollarHelght, CollarHelixHeight;
 };
 
 #include "HelfrichModel.h"

@@ -75,16 +75,16 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     ProjectL2(&bvp);
     
     //Dirichlet
-    ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the cap
-    ierr = IGASetBoundaryValue(bvp.iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the cap
-    ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the cap
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the cap
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); //Init for X=uDirichlet at the bottom of the cap
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr); //Init foe Z=uDirichlet at the bottom of the cap
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); //Init for X=uDirichlet at the bottom of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr); //Init foe Z=uDirichlet at the bottom of the tube
    
     //Neumann
-    ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the bottom of the cap
-    ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_FALSE);CHKERRQ(ierr); //phi=0  at the top of the cap
+    ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the bottom of the tube
+    ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_FALSE);CHKERRQ(ierr); //phi=0  at the top of the tube
     bvp.angleConstraints[0]=true; bvp.angleConstraintValues[0]=90;
     bvp.angleConstraints[1]=false; bvp.angleConstraintValues[1]=0;
     bvp.epsilon=bvp.kMean;
@@ -92,11 +92,34 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     //Non-homogeneous Dirichlet BC values
     ierr = IGASetFixTable(bvp.iga,bvp.xDirichlet);CHKERRQ(ierr);    /* Set vector to read BCs from */
     break;
+
+  case 2: //Helix BVP
+    //Dirichlet
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,0.0);CHKERRQ(ierr); //X=0 at the bottom of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,0.0);CHKERRQ(ierr); //Z=0 at the bottom of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the tube
+   
+    //Neumann
+    ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the bottom of the tube
+    ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the top of the tube
+    bvp.angleConstraints[0]=true; bvp.angleConstraintValues[0]=90;
+    bvp.angleConstraints[1]=true; bvp.angleConstraintValues[1]=90;
+    bvp.epsilon=bvp.kMean;
+
+    //force collar parameters
+    bvp.CollarRadius=bvp.l;
+    bvp.CollarLocation=bvp.l*2.5;
+    bvp.CollarHelght=bvp.l*0.05;
+    bvp.CollarHelixHeight=bvp.l*0.5;
+    break;
     
-  case 2: //base BVP
+  case 3: //base BVP
     break;
 
-  case 3: //pulling flat membrane BVP. AKA baseCircle BVP.
+  case 4: //pulling flat membrane BVP. AKA baseCircle BVP.
     break;
   }
   //
@@ -132,10 +155,17 @@ int main(int argc, char *argv[]) {
   bvp.lambda=10*bvp.kMean;        //penalty parameter
   bvp.surfaceTensionAtBase=0.0;
   bvp.epsilon=0.0;       //penalty parameter for rotational constraints
+  //
   bvp.type=bvpType;
   bvp.stabilization=stabilizationMethod;
   bvp.c_time=0.0;
-
+  bvp.isCollar=false;
+  bvp.isCollarHelix=false;
+  bvp.CollarRadius=0.0;
+  bvp.CollarLocation=0.0;
+  bvp.CollarHelght=0.0;
+  bvp.CollarHelixHeight=0.0;
+    
   //processor zero for printing output in MPI jobs
   if(rank == 0){bvp.isProc0=true;}
   else {bvp.isProc0=false;}
