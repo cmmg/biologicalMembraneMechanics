@@ -86,7 +86,7 @@ PetscErrorCode FunctionDirichletL2(IGAPoint p, const PetscScalar *U, PetscScalar
   }
 	
   PetscReal uDirichletVal=bvp->uDirichlet;  
-  if (x[1]>(0.1*bvp->l)){ uDirichletVal=0.0;}//for top surface
+  if (x[1]>(0.5*bvp->l)){ uDirichletVal=0.0;}//for top surface
 
   //L2 projection residual
   const PetscReal (*N) = (const PetscReal (*)) p->shape[0];;  
@@ -122,6 +122,7 @@ PetscErrorCode FunctionReactions(IGAPoint p, const PetscScalar *U, PetscScalar *
   //
   if (std::abs(pCoords[1])<0.5*bvp->l){ 
     Residual(p, 0, 0, 0, U, 0, U, R, ctx);
+    for (unsigned int n=0; n<(unsigned int)(nen); n++) R[n*dof+1]=0.0; //null the y component 
   }
   else{
     for (unsigned int n=0; n<(unsigned int)(nen*dof); n++) R[n]=0.0; 
@@ -148,11 +149,11 @@ PetscErrorCode FunctionUAtBase(IGAPoint p, const PetscScalar *U, PetscScalar *R,
   
   //
   const PetscReal (*N) = (const PetscReal (*)) p->shape[0];
-  if (std::abs(pCoords[1])<1.0e-2*bvp->l){ 
+  if (std::abs(pCoords[1])<0.5*bvp->l){ 
     for (unsigned int n=0; n<(unsigned int)(nen); n++){
-      for (unsigned int i=0; i<3; i++){
-	R[n*dof+i] = N[n]*u[n][i];
-      }
+      	R[n*dof+0] = N[n]*u[n][0];
+	R[n*dof+1] = N[n]*u[n][1]*0; //null the y component as this by itself can be higher than the x,z components
+	R[n*dof+2] = N[n]*u[n][2];
 #ifdef LagrangeMultiplierMethod   
       R[n*dof+3] = 0.0;
 #endif
@@ -357,6 +358,10 @@ PetscErrorCode ProjectFields(Vec& U, void *ctx)
   double uVal=0.0, rVal=0.0;
   VecNorm(UAtBase,NORM_INFINITY,&uVal);
   VecNorm(R,NORM_INFINITY,&rVal);
+
+  //better checks
+  VecStrideMax(U,0,NULL,&uVal);
+  VecStrideMax(R,0,NULL,&rVal);
   
   //Get energy values
   PetscScalar    energy[2] = {0,0};

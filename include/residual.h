@@ -134,8 +134,8 @@ PetscErrorCode ResidualFunction(IGAPoint p,
   }
   
   //Residual
-  PetscReal L=bvp->l;
-  PetscReal K=bvp->kMean;
+  PetscReal L=1.0; //bvp->l;
+  PetscReal K=1.0; //bvp->kMean;
   PetscReal Epsilon=bvp->epsilon;
   if (!surfaceFlag) {
     for (unsigned int n=0; n<(unsigned int)nen; n++) {

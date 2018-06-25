@@ -49,7 +49,7 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
   //Dirichlet and Neumann BC's
   switch (bvp.type) {
   case 0: //cap BVP
-    bvp.uDirichlet=-c_time*bvp.l*1.0; //X=Z=uDirichlet at the bottom of the cap (displacement control)
+    bvp.uDirichlet=-0.8*c_time*bvp.l*1.0; //X=Z=uDirichlet at the bottom of the cap (displacement control)
     ProjectL2(&bvp);
   
     //Dirichlet
@@ -64,7 +64,7 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_FALSE);CHKERRQ(ierr); //phi=0  at the top of the cap
     bvp.angleConstraints[0]=true; bvp.angleConstraintValues[0]=90;
     bvp.angleConstraints[1]=false; bvp.angleConstraintValues[1]=0;
-    bvp.epsilon=1.0;
+    bvp.epsilon=bvp.kMean;
     
     //Non-homogeneous Dirichlet BC values
     ierr = IGASetFixTable(bvp.iga,bvp.xDirichlet);CHKERRQ(ierr);    /* Set vector to read BCs from */
@@ -87,7 +87,7 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_FALSE);CHKERRQ(ierr); //phi=0  at the top of the cap
     bvp.angleConstraints[0]=true; bvp.angleConstraintValues[0]=90;
     bvp.angleConstraints[1]=false; bvp.angleConstraintValues[1]=0;
-    bvp.epsilon=1.0;
+    bvp.epsilon=bvp.kMean;
     
     //Non-homogeneous Dirichlet BC values
     ierr = IGASetFixTable(bvp.iga,bvp.xDirichlet);CHKERRQ(ierr);    /* Set vector to read BCs from */
@@ -120,16 +120,16 @@ int main(int argc, char *argv[]) {
   //setup BVP and material model parameters
   BVPStruct bvp;
   //non-dimentionalzation factors used for the pinching problems
-  bvp.lengthFactor=20.0; //20nm
-  bvp.kFactor=320.0; //320pN-nm
-  bvp.forceFactor=16.0; //16pN
-  bvp.energyFactor=320.0; //320pN-nm
-  //non-dimentionalized material constants
-  bvp.l=1.0;             
-  bvp.kMean=1.0;         //mean curvature modulus
-  bvp.kGaussian=0.0;     //Gaussian curvature modulus
-  bvp.mu=1.0;            //shear modulus for stabilization terms
-  bvp.lambda=100;        //penalty parameter
+  bvp.lengthFactor=1.0;
+  bvp.kFactor=1.0; 
+  bvp.forceFactor=1.0; 
+  bvp.energyFactor=1.0; 
+  //material constants (in actual units)
+  bvp.l=20.0;              //20nm
+  bvp.kMean=320.0;         //320pN-nm, mean curvature modulus
+  bvp.kGaussian=0.0;      //Gaussian curvature modulus
+  bvp.mu=1.0*bvp.kMean;       //shear modulus for stabilization terms
+  bvp.lambda=10*bvp.kMean;        //penalty parameter
   bvp.surfaceTensionAtBase=0.0;
   bvp.epsilon=0.0;       //penalty parameter for rotational constraints
   bvp.type=bvpType;
@@ -150,9 +150,9 @@ int main(int argc, char *argv[]) {
   ierr = IGAAxisSetPeriodic(iga->axis[1],PETSC_TRUE);CHKERRQ(ierr);
   switch (bvp.type) {
   case 0: //cap BVP
-    ierr = IGARead(iga,"meshes/FullcapTrimmedMeshr80h40C1.dat"); CHKERRQ(ierr); break;
+    ierr = IGARead(iga,"meshes/FullcapMeshr80h40C1.dat"); CHKERRQ(ierr); break;
   case 1: //tube BVP
-    ierr = IGARead(iga,"meshes/tubeMeshr80h40C1.dat"); CHKERRQ(ierr); break;
+    ierr = IGARead(iga,"meshes/FulltubeMeshr80h40C1.dat"); CHKERRQ(ierr); break;
   case 2: //base BVP
     ierr = IGARead(iga,"meshes/baseMesh.dat"); CHKERRQ(ierr); break;
   case 3: //baseCircle BVP
