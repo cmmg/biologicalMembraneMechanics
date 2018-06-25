@@ -17,9 +17,9 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 #include "include/solvers.h"
 
 //parameters
-#define bvpType 0
+#define bvpType 1
 #define stabilizationMethod 7
-#define numLoadSteps 1000
+#define numLoadSteps 100
 
 #undef  __FUNCT__
 #define __FUNCT__ "setBCs"
@@ -71,7 +71,7 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     break;
     
   case 1: //tube BVP
-    bvp.uDirichlet=-c_time*bvp.l*1.0; //X=Z=uDirichlet at the bottom of the cap (displacement control)
+    bvp.uDirichlet=-0.9*c_time*bvp.l*1.0; //X=Z=uDirichlet at the bottom of the cap (displacement control)
     ProjectL2(&bvp);
     
     //Dirichlet
