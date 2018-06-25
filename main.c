@@ -25,7 +25,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 #define __FUNCT__ "setBCs"
 PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
 {
-  PetscFunctionBegin;
+  PetscFunctionBegin; 
   PetscErrorCode ierr;
 
   ierr = IGASetFixTable(bvp.iga,NULL);CHKERRQ(ierr); /* Clear vector to read BCs from */
