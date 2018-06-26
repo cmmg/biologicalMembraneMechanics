@@ -17,9 +17,9 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 #include "include/solvers.h"
 
 //parameters
-#define bvpType 1
+#define bvpType 2
 #define stabilizationMethod 7
-#define numLoadSteps 100
+#define numLoadSteps 1000
 
 #undef  __FUNCT__
 #define __FUNCT__ "setBCs"
@@ -106,17 +106,17 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the bottom of the tube
     ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the top of the tube
     bvp.angleConstraints[0]=true; bvp.angleConstraintValues[0]=90;
-    bvp.angleConstraints[1]=false; bvp.angleConstraintValues[1]=0;
+    bvp.angleConstraints[1]=true; bvp.angleConstraintValues[1]=90;
     bvp.epsilon=bvp.kMean;
 
     //force helix parameters
     bvp.isCollar=false;
     bvp.isCollarHelix=true;
-    bvp.CollarLocation=bvp.l*2.5;
-    bvp.CollarHelght=bvp.l*0.05;
-    bvp.CollarHelixPitch=bvp.l;
+    bvp.CollarLocation=bvp.l*2.0;
+    bvp.CollarHeight=bvp.l*0.1;
+    bvp.CollarHelixPitch=0.5*bvp.l;
     bvp.CollarRadius=bvp.l;
-    bvp.CollarPressure=c_time*100;
+    bvp.CollarPressure=-c_time*15;
     break;
     
   case 3: //base BVP
@@ -165,7 +165,7 @@ int main(int argc, char *argv[]) {
   bvp.isCollar=false;
   bvp.isCollarHelix=false;
   bvp.CollarLocation=0.0;
-  bvp.CollarHelght=0.0;
+  bvp.CollarHeight=0.0;
   bvp.CollarHelixPitch=0.0;
   bvp.CollarRadius=0.0;
   bvp.CollarPressure=0.0;
@@ -187,9 +187,11 @@ int main(int argc, char *argv[]) {
     ierr = IGARead(iga,"meshes/FullcapMeshr80h40C1.dat"); CHKERRQ(ierr); break;
   case 1: //tube BVP
     ierr = IGARead(iga,"meshes/FulltubeMeshr80h40C1.dat"); CHKERRQ(ierr); break;
-  case 2: //base BVP
+  case 2: //helix BVP
+    ierr = IGARead(iga,"meshes/FulltubeForHelixMeshr160h80C1.dat"); CHKERRQ(ierr); break;
+  case 3: //base BVP
     ierr = IGARead(iga,"meshes/baseMesh.dat"); CHKERRQ(ierr); break;
-  case 3: //baseCircle BVP
+  case 4: //baseCircle BVP
     ierr = IGARead(iga,"meshes/baseCircleTrimmedMeshr80h80.dat"); CHKERRQ(ierr); break;
   }
   ierr = IGASetFromOptions(iga);CHKERRQ(ierr);
