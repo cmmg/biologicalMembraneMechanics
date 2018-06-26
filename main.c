@@ -106,14 +106,17 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the bottom of the tube
     ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the top of the tube
     bvp.angleConstraints[0]=true; bvp.angleConstraintValues[0]=90;
-    bvp.angleConstraints[1]=true; bvp.angleConstraintValues[1]=90;
+    bvp.angleConstraints[1]=false; bvp.angleConstraintValues[1]=0;
     bvp.epsilon=bvp.kMean;
 
-    //force collar parameters
-    bvp.CollarRadius=bvp.l;
+    //force helix parameters
+    bvp.isCollar=false;
+    bvp.isCollarHelix=true;
     bvp.CollarLocation=bvp.l*2.5;
     bvp.CollarHelght=bvp.l*0.05;
-    bvp.CollarHelixHeight=bvp.l*0.5;
+    bvp.CollarHelixPitch=bvp.l;
+    bvp.CollarRadius=bvp.l;
+    bvp.CollarPressure=c_time*100;
     break;
     
   case 3: //base BVP
@@ -161,11 +164,12 @@ int main(int argc, char *argv[]) {
   bvp.c_time=0.0;
   bvp.isCollar=false;
   bvp.isCollarHelix=false;
-  bvp.CollarRadius=0.0;
   bvp.CollarLocation=0.0;
   bvp.CollarHelght=0.0;
-  bvp.CollarHelixHeight=0.0;
-    
+  bvp.CollarHelixPitch=0.0;
+  bvp.CollarRadius=0.0;
+  bvp.CollarPressure=0.0;
+  
   //processor zero for printing output in MPI jobs
   if(rank == 0){bvp.isProc0=true;}
   else {bvp.isProc0=false;}

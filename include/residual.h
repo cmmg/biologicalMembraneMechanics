@@ -163,15 +163,25 @@ PetscErrorCode ResidualFunction(IGAPoint p,
 	  }
 	}
 	T Ru_i = ((L*L)/K)*(sigma_in+sigma_out)*J+(L/K)*moment*J;
-	//
-	/*
+
+	//body forces (force collar)
 	bool isCollar=false;
-	//collar implementation
-	if (std::abs(pCoords[1]-CollarZ)<=CollarDepth) {isCollar=true;}
-	if (isCollar){ //axis aligned along Y-axis
-	  Ru_i+=((L*L*L)/K)*N[n]*(t*CollarForce)*(k.normal[i])*J;
+	if (bvp->isCollar){
+	  if (std::abs(pCoords[1]-bvp->CollarLocation)<=bvp->CollarHeight) {isCollar=true;}
 	}
-	*/
+	else if (bvp->isCollarHelix){
+	  PetscReal cc=bvp->CollarHelixPitch/(2*PI);
+	  PetscReal tt=(pCoords[1]-bvp->CollarLocation)/cc;
+	  if ((tt>=0) && (tt<=2*PI)){ 
+	    PetscReal xx=bvp->CollarRadius*std::cos(tt);
+	    PetscReal yy=bvp->CollarRadius*std::sin(tt);
+	    if (std::sqrt(std::pow(pCoords[0]-xx,2)+std::pow(pCoords[2]-yy,2))<=bvp->CollarHeight) {isCollar=true;}
+	  }
+	}
+	if (isCollar) {
+	  Ru_i+=((L*L*L)/K)*N[n]*bvp->CollarPressure*k.normal[i]*J;
+	}
+	//
 	R[n*dof+i] = Ru_i; 
       }
 #ifdef LagrangeMultiplierMethod
