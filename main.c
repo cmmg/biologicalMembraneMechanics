@@ -10,6 +10,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 
 #define LagrangeMultiplierMethod
 #define enableFastResidualComputation
+#define enableForceControl //default is displacement control for some BVPs
 
 #include "include/residual.h"
 #include "include/project.h"
@@ -49,15 +50,15 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
   //Dirichlet and Neumann BC's
   switch (bvp.type) {
   case 0: //cap BVP
-    bvp.uDirichlet=-0.8*c_time*bvp.l*1.0; //X=Z=uDirichlet at the bottom of the cap (displacement control)
+    bvp.uDirichlet=0.8*c_time*bvp.l*1.0; //X=Z=uDirichlet at the bottom of the cap (displacement control)
     ProjectL2(&bvp);
   
     //Dirichlet
     ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the cap
     ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the cap
     ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the cap
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); //Init for X=uDirichlet at the bottom of the cap
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr); //Init for Z=uDirichlet at the bottom of the cap
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); //init for X=uDirichlet at the bottom of the cap
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr); //init for Z=uDirichlet at the bottom of the cap
    
     //Neumann
     ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the bottom of the cap
@@ -71,17 +72,25 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     break;
     
   case 1: //tube BVP
-    bvp.uDirichlet=-0.9*c_time*bvp.l*1.0; //X=Z=uDirichlet at the bottom of the cap (displacement control)
+#ifdef enableForceControl
+    bvp.isCollar=true;
+    bvp.CollarLocation=bvp.l*0.0;
+    bvp.CollarHeight=bvp.l*0.02; //1/100^th the height of the cylinder, as height=2*l
+    bvp.CollarPressure=c_time*100;
+#else
+    bvp.uDirichlet=0.9*c_time*bvp.l*1.0; //X=Z=uDirichlet at the bottom of the cap (displacement control)
     ProjectL2(&bvp);
+#endif
     
     //Dirichlet
     ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the tube
     ierr = IGASetBoundaryValue(bvp.iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the tube
     ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the tube
     ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the tube
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); //Init for X=uDirichlet at the bottom of the tube
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr); //Init foe Z=uDirichlet at the bottom of the tube
-   
+#ifndef  enableForceControl
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); //init for X=uDirichlet at the bottom of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr); //init for Z=uDirichlet at the bottom of the tube
+#endif
     //Neumann
     ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the bottom of the tube
     ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the top of the tube
@@ -234,7 +243,11 @@ int main(int argc, char *argv[]) {
   
   //open file for U,R output
   if (bvp.isProc0){
-    bvp.fileForUROutout=fopen ("U-R.txt","w");
+#ifdef enableForceControl
+    bvp.fileForUROutout=fopen ("URbyForceControl.txt","w");
+#else
+    bvp.fileForUROutout=fopen ("URbyDisplacementControl.txt","w");
+#endif
     fprintf (bvp.fileForUROutout, "%12s, %12s, %12s, %12s\n", "U[nm]", "R[pN]", "E1[pN-nm]", "E2[pN-nm]");
   }
   

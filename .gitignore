@@ -13,6 +13,7 @@
 *.la
 *.a
 *.vtk
+*.txt
 *~
 *.vts
 *tgz

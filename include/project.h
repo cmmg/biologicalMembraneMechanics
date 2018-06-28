@@ -85,7 +85,7 @@ PetscErrorCode FunctionDirichletL2(IGAPoint p, const PetscScalar *U, PetscScalar
     n[0]=n[1]=n[2]=0.0;
   }
 	
-  PetscReal uDirichletVal=bvp->uDirichlet;  
+  PetscReal uDirichletVal=-bvp->uDirichlet;  
   if (x[1]>(0.5*bvp->l)){ uDirichletVal=0.0;}//for top surface
 
   //L2 projection residual
@@ -313,55 +313,19 @@ PetscErrorCode ProjectFields(Vec& U, void *ctx)
   VecScale(R, bvp->forceFactor);
   ierr = IGADrawVecVTK(bvp->iga,R,filename);CHKERRQ(ierr);
   
-  //write U-R data to file
-  /*
-  Vec ROnProc0, UOnProc0;
-  DMDACreateNaturalVector(bvp->iga->draw_dm,&ROnProc0);
-  DMDAGlobalToNaturalBegin(bvp->iga->draw_dm,R,INSERT_VALUES,ROnProc0);  
-  DMDAGlobalToNaturalEnd(bvp->iga->draw_dm,R,INSERT_VALUES,ROnProc0);
-  DMDACreateNaturalVector(bvp->iga->draw_dm,&UOnProc0);
-  DMDAGlobalToNaturalBegin(bvp->iga->draw_dm,U,INSERT_VALUES,UOnProc0);  
-  DMDAGlobalToNaturalEnd(bvp->iga->draw_dm,U,INSERT_VALUES,UOnProc0);
   //
-  PetscInt N;
-  VecGetSize(R, &N);
-  VecCreateSeq(PETSC_COMM_SELF, N, &ROnProc0);
-  VecCreateSeq(PETSC_COMM_SELF, N, &UOnProc0);
-  IS is; ISCreateStride(PETSC_COMM_SELF, N, 0, 1, &is);
-  VecScatter scatterR; VecScatterCreate(R, is, ROnProc0, is, &scatterR);
-  VecScatter scatterU; VecScatterCreate(U, is, UOnProc0, is, &scatterU);
-  VecScatterCreateToAll(R, &scatterR, &ROnProc0);
-  VecScatterBegin(scatterR, R, ROnProc0, INSERT_VALUES, SCATTER_FORWARD);
-  VecScatterEnd(scatterR, R, ROnProc0, INSERT_VALUES, SCATTER_FORWARD);
-  VecScatterDestroy(&scatterR);
-  VecScatterCreateToAll(U, &scatterU, &UOnProc0);
-  VecScatterBegin(scatterU, U, UOnProc0, INSERT_VALUES, SCATTER_FORWARD);
-  VecScatterEnd(scatterU, U, UOnProc0, INSERT_VALUES, SCATTER_FORWARD);
-  VecScatterDestroy(&scatterU);
-  // 
-  for (unsigned int i=0; i<N; i++){
-    PetscInt idx=i;
-    VecGetValues(UOnProc0, 1, &idx, &uVal);
-    //std::cout << i << "\n";
-    VecGetValues(ROnProc0, 1, &idx, &rVal);
-    if (bvp->isProc0){
-      if (rVal>0.8*rMax){
-	//std::cout << uVal << ", " << rVal << std::endl;
-	printf ("%12.6e, %12.6e, %12.6e\n",uVal,rVal, bvp->uDirichlet);
-	fprintf (bvp->fileForUROutout, "%12.6e, %12.6e, %12.6e\n",uVal,rVal, bvp->uDirichlet);
-      }
-    }
-  }
-  ierr = VecDestroy(&ROnProc0);CHKERRQ(ierr);
-  ierr = VecDestroy(&UOnProc0);CHKERRQ(ierr);
-  */
   double uVal=0.0, rVal=0.0;
   VecNorm(UAtBase,NORM_INFINITY,&uVal);
   VecNorm(R,NORM_INFINITY,&rVal);
 
-  //better checks
+  //
+#ifdef enableForceControl
   VecStrideMax(U,0,NULL,&uVal);
+  rVal=bvp->CollarPressure;
+#else
+  uVal=bvp->uDirichlet;
   VecStrideMax(R,0,NULL,&rVal);
+#endif
   
   //Get energy values
   PetscScalar    energy[2] = {0,0};

@@ -183,7 +183,7 @@ PetscErrorCode ResidualFunction(IGAPoint p,
 	  }
 	}
 	if (isCollar) {
-	  Ru_i+=((L*L*L)/K)*N[n]*CollarPressure*k.normal[i]*J;
+	  Ru_i+=-((L*L*L)/K)*N[n]*CollarPressure*k.normal[i]*J;
 	}
 	
 	//
