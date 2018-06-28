@@ -18,7 +18,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 #include "include/solvers.h"
 
 //parameters
-#define bvpType 0
+#define bvpType 2
 #define stabilizationMethod 7
 #define numLoadSteps 100
 
@@ -109,7 +109,43 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     ierr = IGASetFixTable(bvp.iga,bvp.xDirichlet);CHKERRQ(ierr);    /* Set vector to read BCs from */
     break;
 
-  case 2: //Helix BVP
+  case 2: //base BVP
+    bvp.surfaceTensionAtBase=0.2; //0.2pN/nm
+    bvp.isBaseBVP=true;
+    //**For base meshes the parameter space along the \eta_! direction is from top to bottom
+#ifdef enableForceControl
+    bvp.isCollar=true;
+    bvp.CollarLocation=bvp.l*0.15; 
+    bvp.CollarHeight=bvp.l*0.02; //1/100^th the radius
+    bvp.CollarPressure=-c_time*100;
+#else
+#error For base BVP, only force control implemented. 
+#endif 
+    //Dirichlet
+    //ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the base
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,0.0);CHKERRQ(ierr); //X=0 at the top of the base
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the base
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the base
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the base
+#ifndef  enableForceControl
+#error For base BVP, only force control implemented. 
+#endif
+    
+    //Neumann
+    ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the top of the base
+    ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr); //phi=0  at the bottom of the base
+    bvp.angleConstraints[0]=true; bvp.angleConstraintValues[0]=0;
+    bvp.angleConstraints[1]=true; bvp.angleConstraintValues[1]=90;
+    bvp.epsilon=bvp.kMean;
+    
+    //Non-homogeneous Dirichlet BC values
+    ierr = IGASetFixTable(bvp.iga,bvp.xDirichlet);CHKERRQ(ierr);    /* Set vector to read BCs from */
+    break;
+
+  case 3: //pulling flat membrane BVP. AKA baseCircle BVP.
+    break;
+    
+  case 4: //Helix BVP
     //Dirichlet
     ierr = IGASetBoundaryValue(bvp.iga,0,0,0,0.0);CHKERRQ(ierr); //X=0 at the bottom of the tube
     ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the tube
@@ -133,12 +169,6 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     bvp.CollarHelixPitch=0.5*bvp.l;
     bvp.CollarRadius=bvp.l;
     bvp.CollarPressure=-c_time*15;
-    break;
-    
-  case 3: //base BVP
-    break;
-
-  case 4: //pulling flat membrane BVP. AKA baseCircle BVP.
     break;
   }
   //
@@ -185,7 +215,9 @@ int main(int argc, char *argv[]) {
   bvp.CollarHelixPitch=0.0;
   bvp.CollarRadius=0.0;
   bvp.CollarPressure=0.0;
-  
+  //
+  bvp.isBaseBVP=false;
+   
   //processor zero for printing output in MPI jobs
   if(rank == 0){bvp.isProc0=true;}
   else {bvp.isProc0=false;}
@@ -203,11 +235,11 @@ int main(int argc, char *argv[]) {
     ierr = IGARead(iga,"meshes/capMeshr160h80C1.dat"); CHKERRQ(ierr); break;
   case 1: //tube BVP
     ierr = IGARead(iga,"meshes/tubeMeshr160h80C1.dat"); CHKERRQ(ierr); break;
-  case 2: //helix BVP
-    ierr = IGARead(iga,"meshes/tubeForHelixMeshr160h80C1.dat"); CHKERRQ(ierr); break;
-  case 3: //base BVP
+  case 2: //base BVP
+    ierr = IGARead(iga,"meshes/baseMeshr160h80C1.dat"); CHKERRQ(ierr); break;
+  case 3: //baseCircle BVP
     ierr = IGARead(iga,"meshes/baseMesh.dat"); CHKERRQ(ierr); break;
-  case 4: //baseCircle BVP
+  case 4: //helixBVP
     ierr = IGARead(iga,"meshes/baseCircleTrimmedMeshr80h80.dat"); CHKERRQ(ierr); break;
   }
   ierr = IGASetFromOptions(iga);CHKERRQ(ierr);

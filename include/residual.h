@@ -38,7 +38,8 @@ struct BVPStruct{
   bool isCollar, isCollarHelix;
   PetscReal CollarLocation, CollarHeight;
   PetscReal CollarRadius, CollarHelixHeight;
-  PetscReal CollarHelixPitch, CollarPressure;
+  PetscReal CollarHelixPitch, CollarPressure;//
+  bool isBaseBVP;
 };
 
 #include "HelfrichModel.h"
@@ -183,7 +184,12 @@ PetscErrorCode ResidualFunction(IGAPoint p,
 	  }
 	}
 	if (isCollar) {
-	  Ru_i+=-((L*L*L)/K)*N[n]*CollarPressure*k.normal[i]*J;
+	  if (bvp->isBaseBVP){
+	    Ru_i+=-((L*L*L)/K)*N[n]*CollarPressure*rVec[i]*J;
+	  }
+	  else{
+	    Ru_i+=-((L*L*L)/K)*N[n]*CollarPressure*k.normal[i]*J;
+	  }
 	}
 	
 	//
@@ -215,7 +221,11 @@ PetscErrorCode ResidualFunction(IGAPoint p,
 	    }
 	  }
 	}
-	Ru_i+=-((L*L)/K)*N[n]*rVec[i]*bvp->surfaceTensionAtBase;
+	//Surface tension at base
+	if (std::abs(pCoords[1])<1.0e-2*bvp->l){ //bottom surface
+	  Ru_i+=-((L*L)/K)*N[n]*rVec[i]*bvp->surfaceTensionAtBase;
+	}
+	//
 	R[n*dof+i] = Ru_i; 
       }
 #ifdef LagrangeMultiplierMethod

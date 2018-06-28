@@ -7,23 +7,22 @@ clear all;
 k = 3; %Order in IGa notation is one less than the notation here. So k=3 is a 2nd order curve.
 % knot sequence
 %t = [0 0 0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1 1 1 ];
-numKnots=160;
+numKnots=40;
 t = [0 0 linspace(0,1,numKnots/2) 1 1 ]; %k repetitions of 0 and 1 at the ends of the knot vector
 %
-R=1.0;
-H=10*R;
-r=0.5*R;
+R=20.0;
+r=0.25*R;
 %
 %populate M (2XN points on the curve... where N is some large number that is sufficient for estimating the control points)
 %tube
-theta=linspace(2*R,r,numKnots); 
+theta=linspace(2*R,r,4*numKnots); 
 M=[R*ones(size(theta)); theta];
 
 %arc
 theta=linspace(0,pi/2,ceil(numKnots)); theta=theta(2:end);
 M=[M(1,:) R+r-r*cos(theta);M(2,:) r-r*sin(theta)];
 %line
-theta=linspace(R+r,R+2*r,ceil(numKnots)); theta=theta(2:end);
+theta=linspace(R+r,1.5*R,ceil(numKnots)); theta=theta(2:end);
 M=[M(1,:) theta; M(2,:) R*zeros(size(theta))];
 
 
@@ -45,4 +44,4 @@ axis equal;
 order=k-1;
 knots=t;
 controlPoints=D;
-save('base160.mat','order','knots','controlPoints','-v6') %version 6 format needed to read into python using scipy.io.loadmat
+save(['base' num2str(numKnots) '.mat'],'order','knots','controlPoints','-v6') %version 6 format needed to read into python using scipy.io.loadmat
