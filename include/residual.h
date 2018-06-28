@@ -164,7 +164,7 @@ PetscErrorCode ResidualFunction(IGAPoint p,
 	  }
 	}
 	T Ru_i = ((L*L)/K)*(sigma_in+sigma_out)*J+(L/K)*moment*J;
-
+	
 	//body forces (force collar)
 	bool isCollar=false;
 	double CollarPressure=bvp->CollarPressure;
@@ -185,6 +185,7 @@ PetscErrorCode ResidualFunction(IGAPoint p,
 	if (isCollar) {
 	  Ru_i+=((L*L*L)/K)*N[n]*CollarPressure*k.normal[i]*J;
 	}
+	
 	//
 	R[n*dof+i] = Ru_i; 
       }

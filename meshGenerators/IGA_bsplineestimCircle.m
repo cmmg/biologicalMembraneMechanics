@@ -7,7 +7,7 @@ clear all;
 k = 3; %Order in IGa notation is one less than the notation here. So k=3 is a 2nd order curve.
 % knot sequence
 %t = [0 0 0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1 1 1 ];
-numKnots=40;
+numKnots=320;
 t = [0 0 linspace(0,1,numKnots/2) 1 1 ]; %k repetitions of 0 and 1 at the ends of the knot vector
 %
 R=1.0;

@@ -17,7 +17,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 #include "include/solvers.h"
 
 //parameters
-#define bvpType 2
+#define bvpType 1
 #define stabilizationMethod 7
 #define numLoadSteps 100
 
@@ -84,9 +84,9 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
    
     //Neumann
     ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the bottom of the tube
-    ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_FALSE);CHKERRQ(ierr); //phi=0  at the top of the tube
+    ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the top of the tube
     bvp.angleConstraints[0]=true; bvp.angleConstraintValues[0]=90;
-    bvp.angleConstraints[1]=false; bvp.angleConstraintValues[1]=0;
+    bvp.angleConstraints[1]=true; bvp.angleConstraintValues[1]=90;
     bvp.epsilon=bvp.kMean;
     
     //Non-homogeneous Dirichlet BC values
@@ -184,11 +184,11 @@ int main(int argc, char *argv[]) {
   ierr = IGAAxisSetPeriodic(iga->axis[1],PETSC_TRUE);CHKERRQ(ierr);
   switch (bvp.type) {
   case 0: //cap BVP
-    ierr = IGARead(iga,"meshes/FullcapMeshr80h40C1.dat"); CHKERRQ(ierr); break;
+    ierr = IGARead(iga,"meshes/capMeshr80h40C1.dat"); CHKERRQ(ierr); break;
   case 1: //tube BVP
-    ierr = IGARead(iga,"meshes/FulltubeMeshr80h40C1.dat"); CHKERRQ(ierr); break;
+    ierr = IGARead(iga,"meshes/tubeMeshr160h80C1.dat"); CHKERRQ(ierr); break;
   case 2: //helix BVP
-    ierr = IGARead(iga,"meshes/FulltubeForHelixMeshr160h80C1.dat"); CHKERRQ(ierr); break;
+    ierr = IGARead(iga,"meshes/tubeForHelixMeshr160h80C1.dat"); CHKERRQ(ierr); break;
   case 3: //base BVP
     ierr = IGARead(iga,"meshes/baseMesh.dat"); CHKERRQ(ierr); break;
   case 4: //baseCircle BVP
