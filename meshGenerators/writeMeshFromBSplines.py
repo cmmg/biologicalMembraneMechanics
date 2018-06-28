@@ -9,8 +9,8 @@ from numpy import linspace
 
 #BSpline files
 circleFileName='circle160.mat';
-splineFileName='FulltubeForHelix80.mat'
-outputFileName='FulltubeForHelixMeshr160h80C1.dat'
+splineFileName='tube640.mat'
+outputFileName='tubeMeshr160h640C1.dat'
 C2Continuity=False;
 
 #Read from mat file

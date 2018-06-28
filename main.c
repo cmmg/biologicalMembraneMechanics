@@ -19,7 +19,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 //parameters
 #define bvpType 2
 #define stabilizationMethod 7
-#define numLoadSteps 1000
+#define numLoadSteps 100
 
 #undef  __FUNCT__
 #define __FUNCT__ "setBCs"
