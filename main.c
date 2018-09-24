@@ -10,7 +10,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 
 #define LagrangeMultiplierMethod
 #define enableFastResidualComputation
-#define enableForceControl //default is displacement control for some BVPs
+//#define enableForceControl //default is displacement control for some BVPs
 
 #include "include/residual.h"
 #include "include/project.h"
@@ -18,7 +18,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 #include "include/solvers.h"
 
 //parameters
-#define bvpType 1
+#define bvpType 0
 #define stabilizationMethod 7
 #define numLoadSteps 100
 
@@ -159,6 +159,7 @@ int main(int argc, char *argv[]) {
   bvp.kFactor=1.0; 
   bvp.forceFactor=1.0; 
   bvp.energyFactor=1.0;
+  bvp.areaFactor=1.0;
   //material constants (in actual units)
   bvp.l=20.0;              //20nm
   bvp.kMean=320.0;         //320pN-nm, mean curvature modulus
@@ -193,7 +194,9 @@ int main(int argc, char *argv[]) {
   ierr = IGAAxisSetPeriodic(iga->axis[1],PETSC_TRUE);CHKERRQ(ierr);
   switch (bvp.type) {
   case 0: //cap BVP
-    ierr = IGARead(iga,"meshes/capMeshr80h40C1.dat"); CHKERRQ(ierr); break;
+    ierr = IGARead(iga,"meshes/capMeshr80h40C1.dat"); CHKERRQ(ierr);
+    bvp.areaFactor=2*3.142*bvp.l*bvp.l; // 2*PI*R*R
+    break;
   case 1: //tube BVP
     ierr = IGARead(iga,"meshes/tubeMeshr160h80C1.dat"); CHKERRQ(ierr);
     bvp.areaFactor=2*3.142*bvp.l*(2*bvp.l); // 2*PI*R*H
