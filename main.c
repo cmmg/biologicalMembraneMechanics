@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
   bvp.lengthFactor=1.0;
   bvp.kFactor=1.0; 
   bvp.forceFactor=1.0; 
-  bvp.energyFactor=1.0; 
+  bvp.energyFactor=1.0;
   //material constants (in actual units)
   bvp.l=20.0;              //20nm
   bvp.kMean=320.0;         //320pN-nm, mean curvature modulus
@@ -195,7 +195,9 @@ int main(int argc, char *argv[]) {
   case 0: //cap BVP
     ierr = IGARead(iga,"meshes/capMeshr80h40C1.dat"); CHKERRQ(ierr); break;
   case 1: //tube BVP
-    ierr = IGARead(iga,"meshes/tubeMeshr160h80C1.dat"); CHKERRQ(ierr); break;
+    ierr = IGARead(iga,"meshes/tubeMeshr160h80C1.dat"); CHKERRQ(ierr);
+    bvp.areaFactor=2*3.142*bvp.l*(2*bvp.l); // 2*PI*R*H
+    break;
   case 2: //helix BVP
     ierr = IGARead(iga,"meshes/tubeForHelixMeshr160h80C1.dat"); CHKERRQ(ierr); break;
   case 3: //base BVP

@@ -216,7 +216,7 @@ PetscErrorCode getKinematics(IGAPoint p, const T * tempU, const PetscScalar * te
     }
   }
   k.H=H; k.H0=H0;
-  
+
   //Gaussian curvature: Kappa
   k.Kappa=det_b/det_a;
   

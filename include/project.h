@@ -9,8 +9,8 @@
 #undef __FUNCT__
 #define __FUNCT__ "FunctionEnergy"
 PetscErrorCode FunctionEnergy(IGAPoint p,const PetscScalar *U,PetscInt n,PetscScalar *energy,void *ctx){
-  PetscFunctionBegin;
   BVPStruct *bvp = (BVPStruct *)ctx;
+  PetscFunctionBegin;
 
   //get kinematic quantities
   KinematicsStruct<PetscScalar> k;
@@ -20,7 +20,6 @@ PetscErrorCode FunctionEnergy(IGAPoint p,const PetscScalar *U,PetscInt n,PetscSc
   HelfrichModel<PetscScalar> m;
   m.bvp=bvp;
   computeEnergy(k,m,energy);
-
   PetscFunctionReturn(0);
 }
 
@@ -328,8 +327,8 @@ PetscErrorCode ProjectFields(Vec& U, void *ctx)
 #endif
   
   //Get energy values
-  PetscScalar    energy[2] = {0,0};
-  ierr = IGAComputeScalar(bvp->iga,U,2,&energy[0],FunctionEnergy,ctx);CHKERRQ(ierr);
+  PetscScalar    energy[2];// = {0,0};
+  ierr = IGAComputeScalar(bvp->iga,U,2,energy,FunctionEnergy,ctx);CHKERRQ(ierr);
 
   //
   if (bvp->isProc0){
