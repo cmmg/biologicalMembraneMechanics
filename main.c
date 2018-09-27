@@ -18,7 +18,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 #include "include/solvers.h"
 
 //parameters
-#define bvpType 0
+#define bvpType 1
 #define stabilizationMethod 7
 #define numLoadSteps 100
 
@@ -198,8 +198,9 @@ int main(int argc, char *argv[]) {
     bvp.areaFactor=2*3.142*bvp.l*bvp.l; // 2*PI*R*R
     break;
   case 1: //tube BVP
-    ierr = IGARead(iga,"meshes/tubeMeshr160h80C1.dat"); CHKERRQ(ierr);
-    bvp.areaFactor=2*3.142*bvp.l*(2*bvp.l); // 2*PI*R*H
+    //ierr = IGARead(iga,"meshes/tubeMeshr160h80C1.dat"); CHKERRQ(ierr);
+    ierr = IGARead(iga,"meshes/tubeMeshr80h80C1H4R.dat"); CHKERRQ(ierr);
+    bvp.areaFactor=2*3.142*bvp.l*(4*bvp.l); // 2*PI*R*H
     break;
   case 2: //helix BVP
     ierr = IGARead(iga,"meshes/tubeForHelixMeshr160h80C1.dat"); CHKERRQ(ierr); break;
