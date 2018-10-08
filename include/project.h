@@ -332,7 +332,7 @@ PetscErrorCode ProjectFields(Vec& U, void *ctx)
 
   //
   if (bvp->isProc0){
-    printf ("Stats: UDirichlet: %12.5e nm, R: %12.5e pN, E1: %12.5e pN-nm, E2: %12.5e pN-nm\n", bvp->lengthFactor*std::abs(uVal), bvp->forceFactor*std::abs(rVal), (double)bvp->energyFactor*energy[0], (double)bvp->energyFactor*energy[1]);
+    printf ("Stats: UDirichlet: %14.8e nm, R: %14.8e pN, E1: %14.8e pN-nm, E2: %14.8e pN-nm\n", bvp->lengthFactor*std::abs(uVal), bvp->forceFactor*std::abs(rVal), (double)bvp->energyFactor*energy[0], (double)bvp->energyFactor*energy[1]);
     fprintf (bvp->fileForUROutout, "%12.5e, %12.5e, %12.5e, %12.5e\n", bvp->lengthFactor*std::abs(uVal), bvp->forceFactor*std::abs(rVal), (double)bvp->energyFactor*energy[0], (double)bvp->energyFactor*energy[1]);
     fflush(bvp->fileForUROutout);
   }

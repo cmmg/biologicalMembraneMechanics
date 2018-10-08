@@ -20,7 +20,7 @@ struct  KinematicsStruct{
   double B_contra[2][2]; T b_contra[2][2];
   T Gamma[2][2][2];
   //
-  T J;
+  T J, J_A, J_a;
   T normal[3]; double Normal[3];
   //
   T I1;
@@ -130,9 +130,10 @@ PetscErrorCode getKinematics(IGAPoint p, const T * tempU, const PetscScalar * te
   J_a=std::sqrt(k.a[0][0]*k.a[1][1]-k.a[0][1]*k.a[1][0]);
   J_aPre=std::sqrt(k.aPre[0][0]*k.aPre[1][1]-k.aPre[0][1]*k.aPre[1][0]);
   if (J_A<=0.0) {std::cout << "negative jacobian\n";  exit(-1);}
-  k.J=J_a/J_A;
+  k.J_A=J_A; k.J_a=J_a; 
+  k.J=J_a/J_A; 
   k.JPre=J_a/J_aPre;
-  
+
   //surface normals
   k.normal[0]=(k.dxdR[1][0]*k.dxdR[2][1]-k.dxdR[2][0]*k.dxdR[1][1])/J_a;
   k.normal[1]=(k.dxdR[2][0]*k.dxdR[0][1]-k.dxdR[0][0]*k.dxdR[2][1])/J_a;

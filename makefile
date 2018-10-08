@@ -1,8 +1,9 @@
 fileName=main
 rm *.o $fileName
 
-TRILINOS_DIR=/Applications/deal.II.app/Contents/Resources/opt/trilinos-0b08cd5
+#TRILINOS_DIR=/Applications/deal.II.app/Contents/Resources/opt/trilinos-0b08cd5
 #TRILINOS_DIR=/home/krudraraju/software/trilinos/trilinos-12.12.1-Source/install
+TRILINOS_DIR=/Users/rudraa/workspace/software/trilinos/trilinos-12.12.1-Source/installDir
 
 #Compile
 mpicxx -c -O2 -fPIC  -std=c++11 -Wall -Wwrite-strings -Wno-unused-variable -Wno-unused-value  -Wno-uninitialized -Wno-strict-aliasing -Wno-unknown-pragmas -I/$PETSC_DIR/$PETSC_ARCH/include -I/$PETSC_DIR/include -I$PETIGA_DIR/$PETSC_ARCH/include -I$PETIGA_DIR/include -I$TRILINOS_DIR/include/ $fileName.c 

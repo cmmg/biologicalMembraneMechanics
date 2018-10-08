@@ -12,7 +12,7 @@ struct BVPStruct{
   IGA iga;
   //
   PetscReal lengthFactor, kFactor;
-  PetscReal forceFactor, energyFactor, areaFactor;
+  PetscReal forceFactor, energyFactor;
   //
   PetscReal l;       //characteristic length scale of the domain
   PetscReal epsilon; //penalty parameter for enforcing rotation BC's
@@ -187,11 +187,11 @@ PetscErrorCode ResidualFunction(IGAPoint p,
 	}
 	
 	//
-	R[n*dof+i] = Ru_i; 
+	R[n*dof+i] = Ru_i*k.J_A; 
       }
 #ifdef LagrangeMultiplierMethod
       //Lagrange multiplier residual, J-1
-      R[n*dof+3] = N[n]*(L*L/K)*(J-1.0)*J;
+      R[n*dof+3] = N[n]*(L*L/K)*(J-1.0)*J*k.J_A;
 #endif
     }
   }
@@ -216,7 +216,7 @@ PetscErrorCode ResidualFunction(IGAPoint p,
 	  }
 	}
 	Ru_i+=-((L*L)/K)*N[n]*rVec[i]*bvp->surfaceTensionAtBase;
-	R[n*dof+i] = Ru_i; 
+	R[n*dof+i] = Ru_i*k.J_A; 
       }
 #ifdef LagrangeMultiplierMethod
       R[n*dof+3] = 0.0;
