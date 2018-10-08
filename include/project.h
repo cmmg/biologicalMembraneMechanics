@@ -53,7 +53,7 @@ PetscErrorCode FunctionFields(IGAPoint p, const PetscScalar *U, PetscScalar *R, 
       case 3:
 	val=k.J; break;
       }
-      R[n1*dof+d1] = N[n1]*val;
+      R[n1*dof+d1] = N[n1]*val*k.J_A;
     }
   }
   
@@ -73,6 +73,10 @@ PetscErrorCode FunctionDirichletL2(IGAPoint p, const PetscScalar *U, PetscScalar
   PetscReal x[3];
   IGAPointFormGeomMap(p,x);
 
+  //get kinematic quantities
+  KinematicsStruct<PetscScalar> k;
+  getKinematics<PetscScalar>(p, U, U, k);
+  
   //normal direction in XZ plane
   PetscReal n[3];
   if ((x[0]*x[0]+x[2]*x[2])>0.0){
@@ -102,7 +106,7 @@ PetscErrorCode FunctionDirichletL2(IGAPoint p, const PetscScalar *U, PetscScalar
       case 3:
 	val=0.0; break;
       }
-      R[n1*dof+d1] = N[n1]*val;
+      R[n1*dof+d1] = N[n1]*val*k.J_A;
     }
   }
   
@@ -140,6 +144,11 @@ PetscErrorCode FunctionUAtBase(IGAPoint p, const PetscScalar *U, PetscScalar *R,
   PetscInt nen, dof;
   IGAPointGetSizes(p,0,&nen,&dof);
   PetscReal pCoords[3]; IGAPointFormGeomMap(p,pCoords);
+
+   //get kinematic quantities
+  KinematicsStruct<PetscScalar> k;
+  getKinematics<PetscScalar>(p, U, U, k);
+  
 #ifdef LagrangeMultiplierMethod
   double (*u)[3+1] = (double (*)[3+1])U;
 #else
@@ -150,9 +159,9 @@ PetscErrorCode FunctionUAtBase(IGAPoint p, const PetscScalar *U, PetscScalar *R,
   const PetscReal (*N) = (const PetscReal (*)) p->shape[0];
   if (std::abs(pCoords[1])<0.5*bvp->l){ 
     for (unsigned int n=0; n<(unsigned int)(nen); n++){
-      	R[n*dof+0] = N[n]*u[n][0];
+      	R[n*dof+0] = N[n]*u[n][0]*k.J_A;
 	R[n*dof+1] = N[n]*u[n][1]*0; //null the y component as this by itself can be higher than the x,z components
-	R[n*dof+2] = N[n]*u[n][2];
+	R[n*dof+2] = N[n]*u[n][2]*k.J_A;
 #ifdef LagrangeMultiplierMethod   
       R[n*dof+3] = 0.0;
 #endif
@@ -177,6 +186,10 @@ PetscErrorCode JacobianL2(IGAPoint p, const PetscScalar *U, PetscScalar *K, void
   PetscInt dim = p->dim;
   PetscInt nen, dof;
   IGAPointGetSizes(p,0,&nen,&dof);
+
+  //get kinematic quantities
+  KinematicsStruct<PetscScalar> k;
+  getKinematics<PetscScalar>(p, U, U, k);
   
   const PetscReal *N = (const PetscReal (*)) p->shape[0];
 
@@ -186,7 +199,7 @@ PetscErrorCode JacobianL2(IGAPoint p, const PetscScalar *U, PetscScalar *K, void
 	for(int d2=0; d2<dof; d2++){
 	  PetscReal val2=0.0;
 	  if (d1==d2) {val2 = N[n1] * N[n2];}
-	  K[n1*dof*nen*dof + d1*nen*dof + n2*dof + d2] =val2;
+	  K[n1*dof*nen*dof + d1*nen*dof + n2*dof + d2] =val2*k.J_A;
 	}
       }
     }
