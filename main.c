@@ -78,7 +78,7 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     bvp.CollarHeight=bvp.l*0.02; //1/100^th the height of the cylinder, as height=2*l
     bvp.CollarPressure=c_time*100;
 #else
-    bvp.uDirichlet=0.9*c_time*bvp.l*1.0; //X=Z=uDirichlet at the bottom of the cap (displacement control)
+    bvp.uDirichlet=0.9*c_time*bvp.l*1.0; //X=Z=uDirichlet at the bottom of the tube (displacement control)
     ProjectL2(&bvp);
 #endif
     
@@ -102,36 +102,34 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     ierr = IGASetFixTable(bvp.iga,bvp.xDirichlet);CHKERRQ(ierr);    /* Set vector to read BCs from */
     break;
 
-  case 2: //Helix BVP
-    //Dirichlet
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,0.0);CHKERRQ(ierr); //X=0 at the bottom of the tube
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the tube
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,0.0);CHKERRQ(ierr); //Z=0 at the bottom of the tube
-    ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the tube
-    ierr = IGASetBoundaryValue(bvp.iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the tube
-    ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the tube
-   
-    //Neumann
-    ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the bottom of the tube
-    ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the top of the tube
-    bvp.angleConstraints[0]=true; bvp.angleConstraintValues[0]=90;
-    bvp.angleConstraints[1]=true; bvp.angleConstraintValues[1]=90;
-    bvp.epsilon=bvp.kMean;
-
-    //force helix parameters
-    bvp.isCollar=false;
-    bvp.isCollarHelix=true;
-    bvp.CollarLocation=bvp.l*2.0;
-    bvp.CollarHeight=bvp.l*0.1;
-    bvp.CollarHelixPitch=0.5*bvp.l;
-    bvp.CollarRadius=bvp.l;
-    bvp.CollarPressure=-c_time*15;
-    break;
+  case 2: //base BVP
+#ifdef enableForceControl
+    bvp.isCollar=true;
+    bvp.CollarLocation=bvp.l*0.0;
+    bvp.CollarHeight=bvp.l*0.02; //1/100^th the height of the cylinder, as height=2*l
+    bvp.CollarPressure=c_time*100;
+#else
+    bvp.uDirichlet=0.9*c_time*bvp.l*1.0; //X=Z=uDirichlet at the bottom of the base (displacement control)
+    ProjectL2(&bvp);
+#endif
     
-  case 3: //base BVP
-    break;
+    //Dirichlet
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the base
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the base
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the base
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the base
+#ifndef  enableForceControl
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); //init for X=uDirichlet at the bottom of the base
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr); //init for Z=uDirichlet at the bottom of the base
+#endif
 
-  case 4: //pulling flat membrane BVP. AKA baseCircle BVP.
+    //Neumann
+    bvp.angleConstraints[0]=false; 
+    bvp.angleConstraints[1]=false; 
+    bvp.epsilon=bvp.kMean*0.0;
+    
+    //Non-homogeneous Dirichlet BC values
+    ierr = IGASetFixTable(bvp.iga,bvp.xDirichlet);CHKERRQ(ierr);    /* Set vector to read BCs from */
     break;
   }
   //
@@ -199,12 +197,9 @@ int main(int argc, char *argv[]) {
     //ierr = IGARead(iga,"meshes/tubeMeshr160h80C1.dat"); CHKERRQ(ierr);
     ierr = IGARead(iga,"meshes/tubeMeshr80h80C1H4R.dat"); CHKERRQ(ierr);
     break;
-  case 2: //helix BVP
-    ierr = IGARead(iga,"meshes/tubeForHelixMeshr160h80C1.dat"); CHKERRQ(ierr); break;
-  case 3: //base BVP
-    ierr = IGARead(iga,"meshes/baseMesh.dat"); CHKERRQ(ierr); break;
-  case 4: //baseCircle BVP
-    ierr = IGARead(iga,"meshes/baseCircleTrimmedMeshr80h80.dat"); CHKERRQ(ierr); break;
+  case 2: //base BVP
+    ierr = IGARead(iga,"meshes/base45DegMeshr80h80C1H2R.dat"); CHKERRQ(ierr);
+    break;
   }
   ierr = IGASetFromOptions(iga);CHKERRQ(ierr);
   ierr = IGASetUp(iga);CHKERRQ(ierr);

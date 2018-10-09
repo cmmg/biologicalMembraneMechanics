@@ -171,17 +171,6 @@ PetscErrorCode ResidualFunction(IGAPoint p,
 	if (bvp->isCollar){
 	  if (std::abs(pCoords[1]-bvp->CollarLocation)<=bvp->CollarHeight) {isCollar=true;}
 	}
-	else if (bvp->isCollarHelix){
-	  PetscReal cc=bvp->CollarHelixPitch/(2*PI);
-	  PetscReal tt=(pCoords[1]-bvp->CollarLocation)/cc;
-	  if ((tt>=0) && (tt<=2*PI)){ 
-	    PetscReal xx=bvp->CollarRadius*std::cos(tt);
-	    PetscReal yy=bvp->CollarRadius*std::sin(tt);
-	    if (std::sqrt(std::pow(pCoords[0]-xx,2)+std::pow(pCoords[2]-yy,2))<=bvp->CollarHeight) {
-	      isCollar=true;
-	    }
-	  }
-	}
 	if (isCollar) {
 	  Ru_i+=-((L*L*L)/K)*N[n]*CollarPressure*k.normal[i]*J;
 	}
