@@ -19,7 +19,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 
 //parameters
 #define bvpType 2
-#define stabilizationMethod 3 //Note: Method 7 will make the solution a bit time step dependent as previous time step solution (dx0dR, aPre terms, etc) are used.
+#define stabilizationMethod 7 //Note: Method 7 will make the solution a bit time step dependent as previous time step solution (dx0dR, aPre terms, etc) are used.
 #define numLoadSteps 100
 
 #undef  __FUNCT__
