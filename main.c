@@ -10,7 +10,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 
 #define LagrangeMultiplierMethod
 #define enableFastResidualComputation
-//#define enableForceControl //default is displacement control for some BVPs
+#define enableForceControl //default is displacement control for some BVPs
 
 #include "include/residual.h"
 #include "include/project.h"
@@ -18,8 +18,8 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 #include "include/solvers.h"
 
 //parameters
-#define bvpType 1
-#define stabilizationMethod 7
+#define bvpType 2
+#define stabilizationMethod 3 //Note: Method 7 will make the solution a bit time step dependent as previous time step solution (dx0dR, aPre terms, etc) are used.
 #define numLoadSteps 100
 
 #undef  __FUNCT__
@@ -106,8 +106,8 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
 #ifdef enableForceControl
     bvp.isCollar=true;
     bvp.CollarLocation=bvp.l*0.0;
-    bvp.CollarHeight=bvp.l*0.02; //1/100^th the height of the cylinder, as height=2*l
-    bvp.CollarPressure=c_time*100;
+    bvp.CollarHeight=bvp.l*0.2; //1/10^th the height of the cylinder, as height=2*l
+    bvp.CollarPressure=c_time*10;
 #else
     bvp.uDirichlet=0.9*c_time*bvp.l*1.0; //X=Z=uDirichlet at the bottom of the base (displacement control)
     ProjectL2(&bvp);
@@ -127,9 +127,11 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     bvp.angleConstraints[0]=false; 
     bvp.angleConstraints[1]=false; 
     bvp.epsilon=bvp.kMean*0.0;
-    
+
+#ifndef  enableForceControl
     //Non-homogeneous Dirichlet BC values
     ierr = IGASetFixTable(bvp.iga,bvp.xDirichlet);CHKERRQ(ierr);    /* Set vector to read BCs from */
+#endif
     break;
   }
   //

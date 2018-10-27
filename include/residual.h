@@ -169,7 +169,7 @@ PetscErrorCode ResidualFunction(IGAPoint p,
 	bool isCollar=false;
 	double CollarPressure=bvp->CollarPressure;
 	if (bvp->isCollar){
-	  if (std::abs(pCoords[1]-bvp->CollarLocation)<=bvp->CollarHeight) {isCollar=true;}
+	  if (std::abs(pCoords[1]-bvp->CollarLocation)<=bvp->CollarHeight) {isCollar=true; }
 	}
 	if (isCollar) {
 	  Ru_i+=-((L*L*L)/K)*N[n]*CollarPressure*k.normal[i]*J;
@@ -185,6 +185,7 @@ PetscErrorCode ResidualFunction(IGAPoint p,
     }
   }
   else{
+    exit (-1);
     if (hasRotationalConstraint){
       if (bvp->angleConstraints[0]==true){
 	//std::cout << pCoords[1] << "v: (" << nVec[0] << ", " << nVec[1] << ", " << nVec[2] << ")\n";
