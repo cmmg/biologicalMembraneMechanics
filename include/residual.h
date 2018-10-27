@@ -83,31 +83,34 @@ PetscErrorCode ResidualFunction(IGAPoint p,
       sigma_contra_outPlane[i][j]=m.sigma_contra[i][j];
       //stabization terms
       switch (bvp->stabilization) {
-      case 0: //A method
+      case 0: //no stabilization
+	sigma_contra_StabilizationTerm=0.0;
+	sigma_contra_outPlane[i][j]+=0.0; break;
+      case 1: //A method
 	sigma_contra_StabilizationTerm=(mu/(J))*(k.A_contra[i][j]-k.a_contra[i][j]); 
 	sigma_contra_outPlane[i][j]+=sigma_contra_StabilizationTerm; break;
-      case 1: //A-t method
+      case 2: //A-t method
 	sigma_contra_StabilizationTerm=(mu/(J))*(k.A_contra[i][j]-k.a_contra[i][j]); 
 	sigma_contra_inPlane[i][j]+=sigma_contra_StabilizationTerm;
 	sigma_contra_outPlane[i][j]+=sigma_contra_StabilizationTerm; break;
-      case 2: //A-s method
+      case 3: //A-s method
 	sigma_contra_StabilizationTerm=(mu/(J*J))*(k.A_contra[i][j]-0.5*k.I1*k.a_contra[i][j]); 
 	sigma_contra_outPlane[i][j]+=sigma_contra_StabilizationTerm; break;
-      case 3: //A-st method
+      case 4: //A-st method
 	sigma_contra_StabilizationTerm=(mu/(J*J))*(k.A_contra[i][j]-0.5*k.I1*k.a_contra[i][j]); 
 	sigma_contra_inPlane[i][j]+=sigma_contra_StabilizationTerm;
 	sigma_contra_outPlane[i][j]+=sigma_contra_StabilizationTerm; break;
-      case 4: //a method
+      case 5: //a method
 	sigma_contra_StabilizationTerm=(mu/(J))*(k.aPre_contra[i][j]-k.a_contra[i][j]); 
 	sigma_contra_outPlane[i][j]+=sigma_contra_StabilizationTerm; break;
-      case 5: //a-t method
+      case 6: //a-t method
 	sigma_contra_StabilizationTerm=(mu/(J))*(k.aPre_contra[i][j]-k.a_contra[i][j]); 
 	sigma_contra_inPlane[i][j]+=sigma_contra_StabilizationTerm;
 	sigma_contra_outPlane[i][j]+=sigma_contra_StabilizationTerm; break;
-      case 6: //a-s method
+      case 7: //a-s method
 	sigma_contra_StabilizationTerm=(mu/(k.JPre*k.JPre))*(k.aPre_contra[i][j]-0.5*k.I1Pre*k.a_contra[i][j]); 
 	sigma_contra_outPlane[i][j]+=sigma_contra_StabilizationTerm; break;
-      case 7: //a-st method
+      case 8: //a-st method
 	sigma_contra_StabilizationTerm=(mu/(k.JPre*k.JPre))*(k.aPre_contra[i][j]-0.5*k.I1Pre*k.a_contra[i][j]); 
 	sigma_contra_inPlane[i][j]+=sigma_contra_StabilizationTerm;
 	sigma_contra_outPlane[i][j]+=sigma_contra_StabilizationTerm; break;
