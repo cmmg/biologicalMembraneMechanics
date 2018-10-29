@@ -10,7 +10,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 
 #define LagrangeMultiplierMethod
 #define enableFastResidualComputation
-//#define enableForceControl //default is displacement control for some BVPs
+#define enableForceControl //default is displacement control for some BVPs
 
 #include "include/residual.h"
 #include "include/project.h"
@@ -20,7 +20,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 //parameters
 #define bvpType 2
 #define stabilizationMethod 4 //Note: Method 8 will make the solution a bit time step dependent as previous time step solution (dx0dR, aPre terms, etc) are used.
-#define numLoadSteps 100
+#define numLoadSteps 50
 
 #undef  __FUNCT__
 #define __FUNCT__ "setBCs"
@@ -107,8 +107,8 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     //bvp.surfaceTensionAtBase=100.0;
 #ifdef enableForceControl
     bvp.isCollar=true;
-    bvp.CollarLocation=bvp.l*0.0;
-    bvp.CollarHeight=bvp.l*0.2; //1/10^th the height of the cylinder, as height=2*l
+    bvp.CollarLocation=bvp.l*0.25;
+    bvp.CollarHeight=bvp.l*0.125; //1/10^th the height of the cylinder, as height=2*l
     bvp.CollarPressure=c_time*100;
 #else
     bvp.uDirichlet=0.9*c_time*bvp.l*1.0; //X=Z=uDirichlet at the bottom of the base (displacement control)
@@ -224,7 +224,7 @@ int main(int argc, char *argv[]) {
     ierr = IGARead(iga,"meshes/tubeMeshr80h80C1H4R.dat"); CHKERRQ(ierr);
     break;
   case 2: //base BVP
-    ierr = IGARead(iga,"meshes/base45DegMeshr80h80C1H2R.dat"); CHKERRQ(ierr);
+    ierr = IGARead(iga,"meshes/base90DegMeshr40h40C1H2R.dat"); CHKERRQ(ierr);
     break;
   case 3: //pullout BVP
     ierr = IGARead(iga,"meshes/baseCircleMeshr40h80C1.dat"); CHKERRQ(ierr);

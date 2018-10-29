@@ -332,7 +332,10 @@ PetscErrorCode ProjectFields(Vec& U, void *ctx)
 
   //
 #ifdef enableForceControl
-  VecStrideMax(U,0,NULL,&uVal);
+  double uValX, uValZ;
+  VecStrideMax(U,0,NULL,&uValX);
+  VecStrideMax(U,2,NULL,&uValZ);
+  uVal=std::max(uValX,uValZ);
   rVal=bvp->CollarPressure;
 #else
   uVal=bvp->uDirichlet;
