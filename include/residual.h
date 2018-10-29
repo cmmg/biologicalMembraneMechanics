@@ -188,7 +188,6 @@ PetscErrorCode ResidualFunction(IGAPoint p,
     }
   }
   else{
-    exit (-1);
     if (hasRotationalConstraint){
       if (bvp->angleConstraints[0]==true){
 	//std::cout << pCoords[1] << "v: (" << nVec[0] << ", " << nVec[1] << ", " << nVec[2] << ")\n";

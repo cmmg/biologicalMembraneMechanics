@@ -103,6 +103,8 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     break;
 
   case 2: //base BVP
+    //ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr);
+    //bvp.surfaceTensionAtBase=100.0;
 #ifdef enableForceControl
     bvp.isCollar=true;
     bvp.CollarLocation=bvp.l*0.0;
@@ -132,6 +134,28 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     //Non-homogeneous Dirichlet BC values
     ierr = IGASetFixTable(bvp.iga,bvp.xDirichlet);CHKERRQ(ierr);    /* Set vector to read BCs from */
 #endif
+    break;
+  case 3: //pullout BVP
+    ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr);
+    bvp.surfaceTensionAtBase=0.0;
+#ifndef  enableForceControl
+    bvp.uDirichlet= c_time*bvp.l*4; //pull out height =  4*R
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,1,bvp.uDirichlet);CHKERRQ(ierr); //Y at the top of the base
+#endif
+
+    //Dirichlet
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the base
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the base
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the base
+#ifndef  enableForceControl
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); 
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr); 
+#endif
+
+    //Neumann
+    bvp.angleConstraints[0]=false; 
+    bvp.angleConstraints[1]=false; 
+    bvp.epsilon=bvp.kMean*0.0;
     break;
   }
   //
@@ -201,6 +225,9 @@ int main(int argc, char *argv[]) {
     break;
   case 2: //base BVP
     ierr = IGARead(iga,"meshes/base45DegMeshr80h80C1H2R.dat"); CHKERRQ(ierr);
+    break;
+  case 3: //pullout BVP
+    ierr = IGARead(iga,"meshes/baseCircleMeshr40h80C1.dat"); CHKERRQ(ierr);
     break;
   }
   ierr = IGASetFromOptions(iga);CHKERRQ(ierr);
