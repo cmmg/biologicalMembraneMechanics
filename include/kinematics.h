@@ -7,6 +7,8 @@
 
 template <class T>
 struct  KinematicsStruct{
+  //coordinates in current configuration
+  double x0[3]; 
   //gradient and Hessian maps
   double dXdR[3][2];
   double dXdR2[3][2][2];
@@ -48,7 +50,7 @@ PetscErrorCode getKinematics(IGAPoint p, const T * tempU, const PetscScalar * te
   const PetscReal (*N) = (const PetscReal (*)) p->shape[0];
   const PetscReal (*N1)[2] = (const PetscReal (*)[2]) p->basis[1];
   const PetscReal (*N2)[2][2] = (const PetscReal (*)[2][2]) p->basis[2];
-
+  
   //get X
   const PetscReal (*X)[3] = (const PetscReal (*)[3]) p->geometry;
 
@@ -74,7 +76,15 @@ PetscErrorCode getKinematics(IGAPoint p, const T * tempU, const PetscScalar * te
 #ifdef LagrangeMultiplierMethod
   k.q=q;
 #endif
-  
+
+  //get x0
+  for(unsigned int d=0; d<3; d++){
+    k.x0[d]=0.0;
+    for(unsigned int n=0; n<(unsigned int) nen; n++){
+      k.x0[d]+=N[n]*(X[n][d]+ u0[n][d]);
+    }
+  }
+
   //basis vectors, dXdR and dxdR, gradient of basis vectors, dXdR2 and dxdR2
   for(unsigned int d=0; d<3; d++){
     k.dXdR[d][0]=k.dXdR[d][1]=0.0;

@@ -39,6 +39,8 @@ struct BVPStruct{
   PetscReal CollarLocation, CollarHeight;
   PetscReal CollarRadius, CollarHelixHeight;
   PetscReal CollarHelixPitch, CollarPressure;
+  //
+  PetscReal xMin;
 };
 
 #include "HelfrichModel.h"
@@ -124,24 +126,13 @@ PetscErrorCode ResidualFunction(IGAPoint p,
   PetscReal pCoords[3]; IGAPointFormGeomMap(p,pCoords);
   PetscReal tempR=std::sqrt(pCoords[0]*pCoords[0]+pCoords[2]*pCoords[2]);
   if (tempR==0){tempR=1.0;}
-  PetscReal rVec[3];
-  switch (bvp->type)
-    {
-  case 0:
-    break;
-  case 1:
-    break;
-  case 2:
-    rVec[1]=1.0; rVec[0]=0.0; rVec[2]=0.0; break;
-  case 3:
-    rVec[1]=0.0; rVec[0]=pCoords[0]/tempR; rVec[2]=pCoords[2]/tempR; break;   
-  }
+  PetscReal rVec[3]={pCoords[0]/tempR,0,pCoords[2]/tempR};
   
   //rotational constraints
   bool hasRotationalConstraint = false; 
   PetscReal theta=0.0;
   if (std::abs(pCoords[1])<1.0e-2*bvp->l){ //bottom surface
-    if (bvp->angleConstraints[0]){theta=bvp->angleConstraintValues[0]; hasRotationalConstraint=true;}
+  if (bvp->angleConstraints[0]){theta=bvp->angleConstraintValues[0]; hasRotationalConstraint=true;}
   }
   else{ //top surface
     if (bvp->angleConstraints[1]){theta=bvp->angleConstraintValues[1]; hasRotationalConstraint=true;}
@@ -183,7 +174,7 @@ PetscErrorCode ResidualFunction(IGAPoint p,
 	bool isCollar=false;
 	double CollarPressure=bvp->CollarPressure;
 	if (bvp->isCollar){
-	  if (std::abs(pCoords[1]-bvp->CollarLocation)<=bvp->CollarHeight) {isCollar=true; }
+	  if (std::abs(pCoords[1]-bvp->CollarLocation)<=(0.5*bvp->CollarHeight)) {isCollar=true; }
 	}
 	if (isCollar) {
 	  Ru_i+=-((L*L*L)/K)*N[n]*CollarPressure*k.normal[i]*J;

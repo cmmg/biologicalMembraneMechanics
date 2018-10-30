@@ -148,7 +148,12 @@ PetscErrorCode FunctionUAtBase(IGAPoint p, const PetscScalar *U, PetscScalar *R,
    //get kinematic quantities
   KinematicsStruct<PetscScalar> k;
   getKinematics<PetscScalar>(p, U, U, k);
+
+  //get Xmin (the coordinate at the maximum value of pinching)
+  double x=std::sqrt(k.x0[0]*k.x0[0]+k.x0[2]*k.x0[2]); //radial distance from the central cylindrical axis
+  bvp->xMin=std::min(bvp->xMin, x);
   
+  //
 #ifdef LagrangeMultiplierMethod
   double (*u)[3+1] = (double (*)[3+1])U;
 #else
@@ -332,11 +337,15 @@ PetscErrorCode ProjectFields(Vec& U, void *ctx)
 
   //
 #ifdef enableForceControl
-  double uValX, uValZ;
-  VecStrideMax(U,0,NULL,&uValX);
-  VecStrideMax(U,2,NULL,&uValZ);
-  uVal=std::max(uValX,uValZ);
-  rVal=bvp->CollarPressure;
+  //double uValX, uValZ;
+  //VecStrideMax(U,0,NULL,&uValX);
+  //VecStrideMax(U,2,NULL,&uValZ);
+  //uVal=std::max(uValX,uValZ);
+  //Find min value of xMin across all procs.
+  PetscReal xMin=bvp->xMin;
+  MPIU_Allreduce(&xMin,&xMin,1,MPIU_REAL,MPIU_MIN,PetscObjectComm((PetscObject)bvp->iga->draw_dm));
+  uVal=xMin;
+  rVal=bvp->CollarPressure*bvp->CollarHeight; //Force per unit length (pressure*thickness)
 #else
   uVal=bvp->uDirichlet;
   VecStrideMax(R,0,NULL,&rVal);
@@ -348,7 +357,7 @@ PetscErrorCode ProjectFields(Vec& U, void *ctx)
 
   //
   if (bvp->isProc0){
-    printf ("Stats: UDirichlet: %14.8e nm, R: %14.8e pN, E1: %14.8e pN-nm, E2: %14.8e pN-nm\n", bvp->lengthFactor*std::abs(uVal), bvp->forceFactor*std::abs(rVal), (double)bvp->energyFactor*energy[0], (double)bvp->energyFactor*energy[1]);
+    printf ("Stats: UDirichlet: %14.8e nm, P: %14.8e pN/nm, E1: %14.8e pN-nm, E2: %14.8e pN-nm\n", bvp->lengthFactor*std::abs(uVal), bvp->forceFactor*std::abs(rVal), (double)bvp->energyFactor*energy[0], (double)bvp->energyFactor*energy[1]);
     fprintf (bvp->fileForUROutout, "%12.5e, %12.5e, %12.5e, %12.5e\n", bvp->lengthFactor*std::abs(uVal), bvp->forceFactor*std::abs(rVal), (double)bvp->energyFactor*energy[0], (double)bvp->energyFactor*energy[1]);
     fflush(bvp->fileForUROutout);
   }
