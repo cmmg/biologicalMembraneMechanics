@@ -104,12 +104,12 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
 
   case 2: //base BVP
     ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr);
-    bvp.surfaceTensionAtBase=2.0;
+    bvp.surfaceTensionAtBase=5.0;
 #ifdef enableForceControl
     bvp.isCollar=true;
     bvp.CollarLocation=bvp.l*0.25;
     bvp.CollarHeight=bvp.l*0.25; 
-    bvp.CollarPressure=c_time*100;
+    bvp.CollarPressure=c_time*200;
 #else
     bvp.uDirichlet=0.9*c_time*bvp.l*1.0; //X=Z=uDirichlet at the bottom of the base (displacement control)
     ProjectL2(&bvp);
@@ -277,7 +277,7 @@ int main(int argc, char *argv[]) {
 #else
     bvp.fileForUROutout=fopen ("URbyDisplacementControl.txt","w");
 #endif
-    fprintf (bvp.fileForUROutout, "%12s, %12s, %12s, %12s\n", "U[nm]", "P[pN/nm]", "E1[pN-nm]", "E2[pN-nm]");
+    fprintf (bvp.fileForUROutout, "%12s, %12s, %12s, %12s\n", "Radius[nm]", "Pressure[pN/nm]", "E1[pN-nm]", "E2[pN-nm]");
   }
   
   //load stepping
