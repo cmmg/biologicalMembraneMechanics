@@ -104,12 +104,12 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
 
   case 2: //base BVP
     ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr);
-    bvp.surfaceTensionAtBase=5.0;
+    bvp.surfaceTensionAtBase=2.0;
 #ifdef enableForceControl
     bvp.isCollar=true;
     bvp.CollarLocation=bvp.l*0.25;
     bvp.CollarHeight=bvp.l*0.25; 
-    bvp.CollarPressure=c_time*200;
+    bvp.CollarPressure=c_time*100;
 #else
     bvp.uDirichlet=0.9*c_time*bvp.l*1.0; //X=Z=uDirichlet at the bottom of the base (displacement control)
     ProjectL2(&bvp);
