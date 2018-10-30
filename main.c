@@ -10,7 +10,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 
 #define LagrangeMultiplierMethod
 #define enableFastResidualComputation
-#define enableForceControl //default is displacement control for some BVPs
+//#define enableForceControl //default is displacement control for some BVPs
 
 #include "include/residual.h"
 #include "include/project.h"
@@ -18,9 +18,9 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 #include "include/solvers.h"
 
 //parameters
-#define bvpType 2
+#define bvpType 3
 #define stabilizationMethod 4 //Note: Method 8 will make the solution a bit time step dependent as previous time step solution (dx0dR, aPre terms, etc) are used.
-#define numLoadSteps 50
+#define numLoadSteps 200
 
 #undef  __FUNCT__
 #define __FUNCT__ "setBCs"
@@ -137,9 +137,9 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     break;
   case 3: //pullout BVP
     ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr);
-    bvp.surfaceTensionAtBase=0.0;
+    bvp.surfaceTensionAtBase=100.0;
 #ifndef  enableForceControl
-    bvp.uDirichlet= c_time*bvp.l*4; //pull out height =  4*R
+    bvp.uDirichlet= (c_time)*bvp.l*4; //pull out height =  4*R
     ierr = IGASetBoundaryValue(bvp.iga,0,1,1,bvp.uDirichlet);CHKERRQ(ierr); //Y at the top of the base
 #endif
 
@@ -148,8 +148,8 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the base
     ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the base
 #ifndef  enableForceControl
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); 
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr); 
+    //ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); 
+    //ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr); 
 #endif
 
     //Neumann
@@ -186,7 +186,7 @@ int main(int argc, char *argv[]) {
   //material constants (in actual units)
   bvp.l=20.0;              //20nm
   bvp.kMean=320.0;         //320pN-nm, mean curvature modulus
-  bvp.kGaussian=0.0;      //Gaussian curvature modulus
+  bvp.kGaussian=0;      //Gaussian curvature modulus
   bvp.mu=1.0*bvp.kMean;       //shear modulus for stabilization terms
   bvp.lambda=10*bvp.kMean;        //penalty parameter
   bvp.surfaceTensionAtBase=0.0;
@@ -227,7 +227,8 @@ int main(int argc, char *argv[]) {
     ierr = IGARead(iga,"meshes/base90DegMeshr40h40C1H2R.dat"); CHKERRQ(ierr);
     break;
   case 3: //pullout BVP
-    ierr = IGARead(iga,"meshes/baseCircleMeshr40h80C1.dat"); CHKERRQ(ierr);
+    //ierr = IGARead(iga,"meshes/baseCircleMeshr40h80C1.dat"); CHKERRQ(ierr);
+    ierr = IGARead(iga,"meshes/baseCircleMeshr40h40C1.dat"); CHKERRQ(ierr);
     break;
   }
   ierr = IGASetFromOptions(iga);CHKERRQ(ierr);
