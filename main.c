@@ -18,9 +18,9 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 #include "include/solvers.h"
 
 //parameters
-#define bvpType 2
-#define stabilizationMethod 4 //Note: Method 8 will make the solution a bit time step dependent as previous time step solution (dx0dR, aPre terms, etc) are used.
-#define numLoadSteps 50
+#define bvpType 1
+#define stabilizationMethod 8 //Note: Method 8 will make the solution a bit time step dependent as previous time step solution (dx0dR, aPre terms, etc) are used.
+#define numLoadSteps 100
 
 #undef  __FUNCT__
 #define __FUNCT__ "setBCs"
@@ -222,7 +222,7 @@ int main(int argc, char *argv[]) {
     break;
   case 1: //tube BVP
     //ierr = IGARead(iga,"meshes/tubeMeshr160h80C1.dat"); CHKERRQ(ierr);
-    ierr = IGARead(iga,"meshes/tubeMeshr80h80C1H4R.dat"); CHKERRQ(ierr);
+    ierr = IGARead(iga,"meshes/tubeMeshr80h80C1H2R.dat"); CHKERRQ(ierr);
     break;
   case 2: //base BVP
     ierr = IGARead(iga,"meshes/base45DegMeshr80h40C1H2R.dat"); CHKERRQ(ierr);
