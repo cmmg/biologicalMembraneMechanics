@@ -10,7 +10,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 
 #define LagrangeMultiplierMethod
 #define enableFastResidualComputation
-//#define enableForceControl //default is displacement control for some BVPs
+#define enableForceControl //default is displacement control for some BVPs
 
 #include "include/residual.h"
 #include "include/project.h"
@@ -75,8 +75,8 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
 #ifdef enableForceControl
     bvp.isCollar=true;
     bvp.CollarLocation=bvp.l*0.0;
-    bvp.CollarHeight=bvp.l*0.02; //1/100^th the height of the cylinder, as height=2*l
-    bvp.CollarPressure=c_time*100;
+    bvp.CollarHeight=bvp.l*0.04; //1/100^th the height of the cylinder, as height=2*l
+    bvp.CollarPressure=c_time*60;
 #else
     bvp.uDirichlet=0.9*c_time*bvp.l*1.0; //X=Z=uDirichlet at the bottom of the tube (displacement control)
     ProjectL2(&bvp);
@@ -97,11 +97,13 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     bvp.angleConstraints[0]=true; bvp.angleConstraintValues[0]=90;
     bvp.angleConstraints[1]=true; bvp.angleConstraintValues[1]=90;
     bvp.epsilon=bvp.kMean;
-    
+
+#ifndef  enableForceControl
     //Non-homogeneous Dirichlet BC values
     ierr = IGASetFixTable(bvp.iga,bvp.xDirichlet);CHKERRQ(ierr);    /* Set vector to read BCs from */
+#endif
     break;
-
+    
   case 2: //base BVP
     //ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr);
     //bvp.surfaceTensionAtBase=0.0;
@@ -274,10 +276,11 @@ int main(int argc, char *argv[]) {
   if (bvp.isProc0){
 #ifdef enableForceControl
     bvp.fileForUROutout=fopen ("URbyForceControl.txt","w");
+    fprintf (bvp.fileForUROutout, "%12s, %12s, %12s, %12s\n", "Radius[nm]", "Pressure[pN/nm]", "E1[pN-nm]", "E2[pN-nm]");
 #else
     bvp.fileForUROutout=fopen ("URbyDisplacementControl.txt","w");
-#endif
     fprintf (bvp.fileForUROutout, "%12s, %12s, %12s, %12s\n", "Radius[nm]", "Reaction[pN]", "E1[pN-nm]", "E2[pN-nm]");
+#endif
   }
   
   //load stepping
