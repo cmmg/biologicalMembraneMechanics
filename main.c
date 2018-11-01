@@ -105,8 +105,8 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     break;
     
   case 2: //base BVP
-    //ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr);
-    //bvp.surfaceTensionAtBase=0.1;
+    ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr);
+    bvp.surfaceTensionAtBase=0.01;
 #ifdef enableForceControl
     bvp.isCollar=true;
     bvp.CollarLocation=bvp.l*0.25;
