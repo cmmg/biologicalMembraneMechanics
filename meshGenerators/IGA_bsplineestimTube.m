@@ -11,12 +11,13 @@ numKnots=80;
 t = [0 0 linspace(0,1,numKnots/2) 1 1 ]; %k repetitions of 0 and 1 at the ends of the knot vector
 %
 R=20.0;
-H=10*R;
+H=2*R;
 r=0.5*R;
 %
 %populate M (2XN points on the curve... where N is some large number that is sufficient for estimating the control points)
 %tube
-theta=linspace(0,2*R,numKnots); 
+theta=linspace(0,H,numKnots); 
+%theta=nonLinspace(0, H, numKnots, 'exp10');
 M=[R*ones(size(theta)); theta];
     
 D = bspline_estimate(k,t,M);
@@ -36,4 +37,4 @@ axis equal;
 order=k-1;
 knots=t;
 controlPoints=D;
-save(['tube' num2str(numKnots) '.mat'],'order','knots','controlPoints','-v6') %version 6 format needed to read into python using scipy.io.loadmat
+save(['tube' num2str(numKnots) 'H2R.mat'],'order','knots','controlPoints','-v6') %version 6 format needed to read into python using scipy.io.loadmat

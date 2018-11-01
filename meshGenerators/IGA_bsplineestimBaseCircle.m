@@ -10,14 +10,16 @@ k = 3; %Order in IGa notation is one less than the notation here. So k=3 is a 2n
 numKnots=40;
 t = [0 0 linspace(0,1,numKnots/2) 1 1 ]; %k repetitions of 0 and 1 at the ends of the knot vector
 %
-R=1.0;
-H=10*R;
-r=0.5*R;
+R=20.0;
+H=0.01*R;
 %
 %populate M (2XN points on the curve... where N is some large number that is sufficient for estimating the control points)
 %first arc
-theta=linspace(1,0*0.01,numKnots);
-M=[R*theta; 0*theta];
+theta=linspace(1.0,0.01,numKnots);% theta=[theta linspace(.05,0.01,numKnots)];
+%theta2=linspace(0.0,1,numKnots); %heta2=[theta 2 linspace(0.25,5,numKnots);
+theta=nonLinspace(1.0, 0.01, numKnots, 'log10');
+theta2=linspace(0.0,1,numKnots);
+M=[R*theta; H*theta2];
 
     
 D = bspline_estimate(k,t,M);
@@ -37,4 +39,4 @@ axis equal;
 order=k-1;
 knots=t;
 controlPoints=D;
-save('baseCircle40.mat','order','knots','controlPoints','-v6') %version 6 format needed to read into python using scipy.io.loadmat
+save('baseCircle40NL.mat','order','knots','controlPoints','-v6') %version 6 format needed to read into python using scipy.io.loadmat
