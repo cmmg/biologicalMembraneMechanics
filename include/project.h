@@ -347,7 +347,7 @@ PetscErrorCode ProjectFields(Vec& U, void *ctx)
   uVal=xMin;
   rVal=bvp->CollarPressure*bvp->CollarHeight; //Force per unit length (pressure*thickness)
 #else
-  uVal=2.5+bvp->l-bvp->uDirichlet;
+  uVal=bvp->l-bvp->uDirichlet;
   VecStrideMax(R,0,NULL,&rVal);
 #endif
   
