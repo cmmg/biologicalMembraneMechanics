@@ -177,7 +177,9 @@ PetscErrorCode ResidualFunction(IGAPoint p,
 	  if (std::abs(pCoords[1]-bvp->CollarLocation)<=(0.5*bvp->CollarHeight)) {isCollar=true; }
 	}
 	if (isCollar) {
-	  Ru_i+=-((L*L*L)/K)*N[n]*CollarPressure*k.normal[i]*J;
+	  if (i!=1){ //remove Y component
+	    Ru_i+=-((L*L*L)/K)*N[n]*CollarPressure*k.normal[i]*J; 
+	  }
 	}
 	
 	//

@@ -10,7 +10,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 
 #define LagrangeMultiplierMethod
 #define enableFastResidualComputation
-//#define enableForceControl //default is displacement control for some BVPs
+#define enableForceControl //default is displacement control for some BVPs
 
 #include "include/residual.h"
 #include "include/project.h"
@@ -20,7 +20,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 //parameters
 #define bvpType 2
 #define stabilizationMethod 8 //Note: Method 8 will make the solution a bit time step dependent as previous time step solution (dx0dR, aPre terms, etc) are used.
-#define numLoadSteps 200
+#define numLoadSteps 100
 
 #undef  __FUNCT__
 #define __FUNCT__ "setBCs"
@@ -109,18 +109,18 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     //bvp.surfaceTensionAtBase=0.1;
 #ifdef enableForceControl
     bvp.isCollar=true;
-    bvp.CollarLocation=bvp.l*0.5;
-    bvp.CollarHeight=bvp.l*0.125; 
-    bvp.CollarPressure=c_time*10;
+    bvp.CollarLocation=bvp.l*0.25;
+    bvp.CollarHeight=bvp.l*0.05; 
+    bvp.CollarPressure=c_time*20;
 #else
     bvp.uDirichlet=c_time*bvp.l*1.0; //X=Z=uDirichlet at the bottom of the base (displacement control)
     ProjectL2(&bvp);
 #endif
     
     //Dirichlet
-    //ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the base
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the base
     //ierr = IGASetBoundaryValue(bvp.iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the base
-    //ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the base
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the base
     ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the base
 #ifndef  enableForceControl
     ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); //init for X=uDirichlet at the bottom of the base
@@ -227,7 +227,7 @@ int main(int argc, char *argv[]) {
     ierr = IGARead(iga,"meshes/tubeMeshr80h80C1H2R.dat"); CHKERRQ(ierr);
     break;
   case 2: //base BVP
-    ierr = IGARead(iga,"meshes/base45DegMeshr80h40C1H2R.dat"); CHKERRQ(ierr);
+    ierr = IGARead(iga,"meshes/base90DegMeshr80h40C1H2R.dat"); CHKERRQ(ierr);
     break;
   case 3: //pullout BVP
     //ierr = IGARead(iga,"meshes/baseCircleMeshr40h80C1.dat"); CHKERRQ(ierr);
