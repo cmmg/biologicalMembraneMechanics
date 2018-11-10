@@ -123,12 +123,17 @@ PetscErrorCode FunctionReactions(IGAPoint p, const PetscScalar *U, PetscScalar *
   IGAPointGetSizes(p,0,&nen,&dof);
   PetscReal pCoords[3]; IGAPointFormGeomMap(p,pCoords);
   //
-  if (std::abs(pCoords[1])<0.5*bvp->l){ 
-    Residual(p, 0, 0, 0, U, 0, U, R, ctx);
-    for (unsigned int n=0; n<(unsigned int)(nen); n++) R[n*dof+1]=0.0; //null the y component 
+  if (bvp->type!=3){ //non-pullout BVP
+    if (std::abs(pCoords[1])<0.5*bvp->l){ 
+      Residual(p, 0, 0, 0, U, 0, U, R, ctx);
+      for (unsigned int n=0; n<(unsigned int)(nen); n++) R[n*dof+1]=0.0; //null the y component 
+    }
+    else{
+      for (unsigned int n=0; n<(unsigned int)(nen*dof); n++) R[n]=0.0; 
+    }
   }
   else{
-    for (unsigned int n=0; n<(unsigned int)(nen*dof); n++) R[n]=0.0; 
+    Residual(p, 0, 0, 0, U, 0, U, R, ctx); //This is for pullout BVP
   }
   //
   
@@ -342,13 +347,27 @@ PetscErrorCode ProjectFields(Vec& U, void *ctx)
   //VecStrideMax(U,2,NULL,&uValZ);
   //uVal=std::max(uValX,uValZ);
   //Find min value of xMin across all procs.
-  PetscReal xMin=bvp->xMin;
-  MPIU_Allreduce(&xMin,&xMin,1,MPIU_REAL,MPIU_MIN,PetscObjectComm((PetscObject)bvp->iga->draw_dm));
-  uVal=xMin;
-  rVal=bvp->CollarPressure*bvp->CollarHeight; //Force per unit length (pressure*thickness)
+  if (bvp->type!=3){  //non-pullout BVP
+    PetscReal xMin=bvp->xMin;
+    MPIU_Allreduce(&xMin,&xMin,1,MPIU_REAL,MPIU_MIN,PetscObjectComm((PetscObject)bvp->iga->draw_dm));
+    uVal=xMin;
+    rVal=bvp->CollarPressure*bvp->CollarHeight; //Force per unit length (pressure*thickness)
+  }
+  else{ //yet to implement for pullOut BVP
+    PetscReal xMin=bvp->xMin;
+    MPIU_Allreduce(&xMin,&xMin,1,MPIU_REAL,MPIU_MIN,PetscObjectComm((PetscObject)bvp->iga->draw_dm));
+    uVal=xMin;
+    rVal=bvp->CollarPressure*bvp->CollarHeight; //Force per unit length (pressure*thickness)
+  }
 #else
-  uVal=bvp->l-bvp->uDirichlet;
-  VecStrideMax(R,0,NULL,&rVal);
+  if (bvp->type!=3){
+    uVal=bvp->l-bvp->uDirichlet;
+    VecStrideMax(R,0,NULL,&rVal); //non-pullout BVP
+  }
+  else{
+    uVal=bvp->uDirichlet;
+    VecStrideMax(R,1,NULL,&rVal); //pull out BVP
+  }
 #endif
   
   //Get energy values
