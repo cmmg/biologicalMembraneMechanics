@@ -19,7 +19,7 @@ struct BVPStruct{
   //
   PetscReal kMean, kGaussian, mu; //material modulus
   PetscReal lambda;   //penalty parameter for enforcing incompressibility
-  PetscReal surfaceTensionAtBase;
+  PetscReal surfaceTensionAtBase, tractionOnTop;
   //
   PetscInt stabilization;
   //B.C's
@@ -211,7 +211,15 @@ PetscErrorCode ResidualFunction(IGAPoint p,
 	    }
 	  }
 	}
-	Ru_i+=-((L*L)/K)*N[n]*rVec[i]*bvp->surfaceTensionAtBase;
+	if (bvp->type==3){ //surface traction of pullout problem
+	  if ((i==1) && (pCoords[1]>(1.0e-2*bvp->l))){ //pull in Y-Direction on top surface only
+	    Ru_i+=-((L*L)/K)*N[n]*1.0*bvp->tractionOnTop;
+	  }
+	  else{
+	    Ru_i+=-((L*L)/K)*N[n]*rVec[i]*bvp->surfaceTensionAtBase; //pull in R-direction at bottom surface only
+	    //std::cout << rVec[0] << " " << rVec[1] << " " << rVec[2] << "\n"; 
+	  }
+	}
 	R[n*dof+i] = Ru_i*k.J_A; 
       }
 #ifdef LagrangeMultiplierMethod

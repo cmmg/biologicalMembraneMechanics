@@ -20,7 +20,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 //parameters
 #define bvpType 3
 #define stabilizationMethod 8 //Note: Method 8 will make the solution a bit time step dependent as previous time step solution (dx0dR, aPre terms, etc) are used.
-#define numLoadSteps 20
+#define numLoadSteps 100
 
 #undef  __FUNCT__
 #define __FUNCT__ "setBCs"
@@ -138,10 +138,14 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
 #endif
     break;
   case 3: //pullout BVP
+    //bottom surface
     ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr);
     bvp.surfaceTensionAtBase=1.0;
+    //topsurface
+    ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr);
+    bvp.tractionOnTop=c_time*75.0;
 #ifndef  enableForceControl
-    bvp.uDirichlet= (c_time)*bvp.l*0.1; //pull out height
+    bvp.uDirichlet= (c_time)*bvp.l*0.05; //pull out height
     ierr = IGASetBoundaryValue(bvp.iga,0,1,1,bvp.uDirichlet);CHKERRQ(ierr); //Y at the top of the base
 #endif
 
@@ -188,10 +192,11 @@ int main(int argc, char *argv[]) {
   //material constants (in actual units)
   bvp.l=20.0;              //20nm
   bvp.kMean=320.0;         //320pN-nm, mean curvature modulus
-  bvp.kGaussian=0;      //Gaussian curvature modulus
+  bvp.kGaussian=-0.7*bvp.kMean;      //Gaussian curvature modulus
   bvp.mu=1.0*bvp.kMean;       //shear modulus for stabilization terms
   bvp.lambda=10*bvp.kMean;        //penalty parameter
   bvp.surfaceTensionAtBase=0.0;
+  bvp.tractionOnTop=0.0;
   bvp.epsilon=0.0;       //penalty parameter for rotational constraints
   bvp.xMin=bvp.l;
   //
@@ -276,7 +281,12 @@ int main(int argc, char *argv[]) {
   if (bvp.isProc0){
 #ifdef enableForceControl
     bvp.fileForUROutout=fopen ("URbyForceControl.txt","w");
-    fprintf (bvp.fileForUROutout, "%12s, %12s, %12s, %12s\n", "Radius[nm]", "Pressure[pN/nm]", "E1[pN-nm]", "E2[pN-nm]");
+    if (bvp.type!=3){ 
+      fprintf (bvp.fileForUROutout, "%12s, %12s, %12s, %12s\n", "Radius[nm]", "Pressure[pN/nm]", "E1[pN-nm]", "E2[pN-nm]");
+    }
+    else{
+      fprintf (bvp.fileForUROutout, "%12s, %12s, %12s, %12s\n", "Height[nm]", "Force[pN]", "E1[pN-nm]", "E2[pN-nm]");
+    }
 #else
     bvp.fileForUROutout=fopen ("URbyDisplacementControl.txt","w");
     fprintf (bvp.fileForUROutout, "%12s, %12s, %12s, %12s\n", "Radius[nm]", "Reaction[pN]", "E1[pN-nm]", "E2[pN-nm]");

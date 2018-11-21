@@ -353,11 +353,9 @@ PetscErrorCode ProjectFields(Vec& U, void *ctx)
     uVal=xMin;
     rVal=bvp->CollarPressure*bvp->CollarHeight; //Force per unit length (pressure*thickness)
   }
-  else{ //yet to implement for pullOut BVP
-    PetscReal xMin=bvp->xMin;
-    MPIU_Allreduce(&xMin,&xMin,1,MPIU_REAL,MPIU_MIN,PetscObjectComm((PetscObject)bvp->iga->draw_dm));
-    uVal=xMin;
-    rVal=bvp->CollarPressure*bvp->CollarHeight; //Force per unit length (pressure*thickness)
+  else{ //pullOut BVP
+    VecStrideMax(U,1,NULL,&uVal); 
+    rVal=bvp->tractionOnTop*2*3.1242*bvp->l; //Force (traction*circumference) 
   }
 #else
   if (bvp->type!=3){
