@@ -92,13 +92,12 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr); //init for Z=uDirichlet at the bottom of the tube
 #endif
     //Neumann
-    /*
     ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the bottom of the tube
     ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the top of the tube
     bvp.angleConstraints[0]=true; bvp.angleConstraintValues[0]=90;
     bvp.angleConstraints[1]=true; bvp.angleConstraintValues[1]=90;
     bvp.epsilon=bvp.kMean;
-    */
+    
     
 #ifndef  enableForceControl
     //Non-homogeneous Dirichlet BC values
