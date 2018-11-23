@@ -34,7 +34,6 @@ PetscErrorCode computeStress(KinematicsStruct<T>& k, HelfrichModel<T>& m)
   T dH=(k.H); //-k.H0;
   T Kappa=k.Kappa;
   T I1=k.I1;
-  T J=k.J;
   T q=k.q;
   
   //For Helfrich energy formulation
@@ -66,16 +65,15 @@ PetscErrorCode computeEnergy(KinematicsStruct<PetscScalar>& k, HelfrichModel<Pet
   double dH=(k.H); //-k.H0;
   double Kappa=k.Kappa;
   double I1=k.I1;
-  double J=k.J;
   double q=k.q;
 
   
   //For Helfrich energy formulation
-  energy[0]= (K*dH*dH+KGaussian*Kappa)*J*k.J_A; //bending energy
+  energy[0]= (K*dH*dH+KGaussian*Kappa)*k.J_a; //bending energy
 #ifdef LagrangeMultiplierMethod
-  energy[1]=q*(J-1)*J*k.J_A; //tension energy for Lagrange multiplier method
+  energy[1]=q*(k.J-1)*k.J_a; //tension energy for Lagrange multiplier method
 #else
-  energy[1]=0.5*lambda*(J-1)*(J-1)*k.J_A; //tension energy for penalty method
+  energy[1]=0.5*lambda*(k.J-1)*(k.J-1)*k.J_a; //tension energy for penalty method
 #endif
 
   PetscFunctionReturn(0);

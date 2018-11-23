@@ -39,16 +39,22 @@ PetscErrorCode FunctionFields(IGAPoint p, const PetscScalar *U, PetscScalar *R, 
   getKinematics<PetscScalar>(p, U, U, k);
 
   //get u at point
+#ifdef LagrangeMultiplierMethod
+  double (*tempU)[3+1] = (double (*)[3+1])U;
+#else
+  double (*tempU)[3] = (double (*)[3])U;
+#endif
+  
   double u[3];
+  const PetscReal (*N) = (const PetscReal (*)) p->shape[0];;  
   for(unsigned int d=0; d<3; d++){
     u[d]=0.0;
     for(unsigned int n=0; n<(unsigned int) nen; n++){
-      u[d]+=N[n]*U[n][d];
+      u[d]+=N[n]*tempU[n][d];
     }
   }
   
   //L2 projection residual
-  const PetscReal (*N) = (const PetscReal (*)) p->shape[0];;  
   for(int n1=0; n1<nen; n1++){
     for(int d1=0; d1<dof; d1++){
       PetscReal val=0.0;
@@ -60,9 +66,9 @@ PetscErrorCode FunctionFields(IGAPoint p, const PetscScalar *U, PetscScalar *R, 
       case 2:
 	val=u[2]; break;
       case 3:
-	val=k.H; break;
+	val= k.H; break;
       }
-      R[n1*dof+d1] = N[n1]*val*k.J_A;
+      R[n1*dof+d1] = N[n1]*val*k.J_a;
     }
   }
   
@@ -115,7 +121,7 @@ PetscErrorCode FunctionDirichletL2(IGAPoint p, const PetscScalar *U, PetscScalar
       case 3:
 	val=0.0; break;
       }
-      R[n1*dof+d1] = N[n1]*val*k.J_A;
+      R[n1*dof+d1] = N[n1]*val*k.J_a;
     }
   }
   
@@ -178,9 +184,9 @@ PetscErrorCode FunctionUAtBase(IGAPoint p, const PetscScalar *U, PetscScalar *R,
   const PetscReal (*N) = (const PetscReal (*)) p->shape[0];
   if (std::abs(pCoords[1])<0.5*bvp->l){ 
     for (unsigned int n=0; n<(unsigned int)(nen); n++){
-      	R[n*dof+0] = N[n]*u[n][0]*k.J_A;
+      	R[n*dof+0] = N[n]*u[n][0]*k.J_a;
 	R[n*dof+1] = N[n]*u[n][1]*0; //null the y component as this by itself can be higher than the x,z components
-	R[n*dof+2] = N[n]*u[n][2]*k.J_A;
+	R[n*dof+2] = N[n]*u[n][2]*k.J_a;
 #ifdef LagrangeMultiplierMethod   
       R[n*dof+3] = 0.0;
 #endif
@@ -218,7 +224,7 @@ PetscErrorCode JacobianL2(IGAPoint p, const PetscScalar *U, PetscScalar *K, void
 	for(int d2=0; d2<dof; d2++){
 	  PetscReal val2=0.0;
 	  if (d1==d2) {val2 = N[n1] * N[n2];}
-	  K[n1*dof*nen*dof + d1*nen*dof + n2*dof + d2] =val2*k.J_A;
+	  K[n1*dof*nen*dof + d1*nen*dof + n2*dof + d2] =val2*k.J_a;
 	}
       }
     }
@@ -326,11 +332,11 @@ PetscErrorCode ProjectFields(Vec& U, void *ctx)
   char           filename[256];
   //write fields
   sprintf(filename,"./fields%d.vts",bvp->load_increment);
-  DMDASetFieldName(bvp->iga->draw_dm,0,"H"); VecStrideScale(X, 0, 1.0/bvp->lengthFactor);
-  DMDASetFieldName(bvp->iga->draw_dm,1,"K"); VecStrideScale(X, 1, 1.0/(bvp->lengthFactor*bvp->lengthFactor));
-  DMDASetFieldName(bvp->iga->draw_dm,2,"I1"); VecStrideScale(X, 2, 1.0);
+  DMDASetFieldName(bvp->iga->draw_dm,0,"Ux"); VecStrideScale(X, 0, 1.0/bvp->lengthFactor);
+  DMDASetFieldName(bvp->iga->draw_dm,1,"Uy"); VecStrideScale(X, 1, 1.0/(bvp->lengthFactor*bvp->lengthFactor));
+  DMDASetFieldName(bvp->iga->draw_dm,2,"Uz"); VecStrideScale(X, 2, 1.0);
 #ifdef LagrangeMultiplierMethod
-  DMDASetFieldName(bvp->iga->draw_dm,3,"J"); VecStrideScale(X, 3, 1.0);
+  DMDASetFieldName(bvp->iga->draw_dm,3,"H"); VecStrideScale(X, 3, 1.0);
 #endif
   ierr = IGADrawVecVTK(bvp->iga,X,filename);CHKERRQ(ierr);
   //write reactions

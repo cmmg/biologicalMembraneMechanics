@@ -168,36 +168,31 @@ PetscErrorCode ResidualFunction(IGAPoint p,
 	    }
 	  }
 	}
-	T Ru_i = ((L*L)/K)*(sigma_in+sigma_out)*J+(L/K)*moment*J;
+	T Ru_i = ((L*L)/K)*(sigma_in+sigma_out)+(L/K)*moment;
 	
 	//body forces (force collar)
 	bool isCollar=false;
 	double CollarPressure=bvp->CollarPressure;
 	if (bvp->isCollar){
-	  if (std::abs(pCoords[1]-bvp->CollarLocation)<=(0.5*bvp->CollarHeight)) {isCollar=true; }
+	  if ((pCoords[1]>=bvp->CollarLocation) && (pCoords[1]<=(bvp->CollarLocation+bvp->CollarHeight))) {isCollar=true; }
 	}
 	if (isCollar) {
 	  if (i!=1){ //remove Y component
-	    Ru_i+=-((L*L*L)/K)*N[n]*CollarPressure*k.normal[i]*J; 
+	    Ru_i+=-((L*L*L)/K)*N[n]*CollarPressure*k.normal[i]; 
 	  }
 	}
 	
 	//
-	R[n*dof+i] = Ru_i*k.J_A; 
+	R[n*dof+i] = Ru_i*k.J_a; 
       }
 #ifdef LagrangeMultiplierMethod
       //Lagrange multiplier residual, J-1
-      R[n*dof+3] = N[n]*(L*L/K)*(J-1.0)*J*k.J_A;
+      R[n*dof+3] = N[n]*(L*L/K)*(J-1.0)*k.J_a;
 #endif
     }
   }
   else{
-    if (hasRotationalConstraint){
-      if (bvp->angleConstraints[0]==true){
-	//std::cout << pCoords[1] << "v: (" << nVec[0] << ", " << nVec[1] << ", " << nVec[2] << ")\n";
-	//std::cout << pCoords[1] << "n: (" << k.normal[0].val() << ", " << k.normal[1].val() << ", " << k.normal[2].val() << ")\n";
-      }
-    }
+    //Line (edge) integral terms: Surface tnesion and slope boundary conditions (if any).
     for (unsigned int n=0; n<(unsigned int)nen; n++) {
       for (unsigned int i=0; i<3; i++){
 	T Ru_i=0.0;
@@ -220,7 +215,7 @@ PetscErrorCode ResidualFunction(IGAPoint p,
 	    //std::cout << rVec[0] << " " << rVec[1] << " " << rVec[2] << "\n"; 
 	  }
 	}
-	R[n*dof+i] = Ru_i*k.J_A; 
+	R[n*dof+i] = Ru_i*k.J_a; ///J_a is not the correct jacobian here as this is the surface jacobian and not the edge (line) jacobian.
       }
 #ifdef LagrangeMultiplierMethod
       R[n*dof+3] = 0.0;

@@ -74,9 +74,9 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
   case 1: //tube BVP
 #ifdef enableForceControl
     bvp.isCollar=true;
-    bvp.CollarLocation=bvp.l*0.0;
-    bvp.CollarHeight=bvp.l*0.04; //1/100^th the height of the cylinder, as height=2*l
-    bvp.CollarPressure=c_time*60;
+    bvp.CollarLocation=bvp.l*0.0; //At the bottom
+    bvp.CollarHeight=bvp.l*0.025; //0.5nm (20*0.025)
+    bvp.CollarPressure=c_time*55;
 #else
     bvp.uDirichlet=0.9*c_time*bvp.l*1.0; //X=Z=uDirichlet at the bottom of the tube (displacement control)
     ProjectL2(&bvp);
