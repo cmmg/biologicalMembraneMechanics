@@ -131,11 +131,18 @@ PetscErrorCode ResidualFunction(IGAPoint p,
   //rotational constraints
   bool hasRotationalConstraint = false; 
   PetscReal theta=0.0;
-  if (std::abs(pCoords[1])<1.0e-2*bvp->l){ //bottom surface
-  if (bvp->angleConstraints[0]){theta=bvp->angleConstraintValues[0]; hasRotationalConstraint=true;}
+  if (bvp->type==1){ //tubeBVP
+    if (std::abs(pCoords[1])<1.0e-2*bvp->l){ //bottom surface
+      if (bvp->angleConstraints[0]){theta=bvp->angleConstraintValues[0]; hasRotationalConstraint=true;}
+    }
+    else{ //top surface
+      if (bvp->angleConstraints[1]){theta=bvp->angleConstraintValues[1]; hasRotationalConstraint=true;}
+    }
   }
-  else{ //top surface
-    if (bvp->angleConstraints[1]){theta=bvp->angleConstraintValues[1]; hasRotationalConstraint=true;}
+  else if (bvp->type==3){ //pulloutBVP
+    if (std::sqrt(pCoords[0]*pCoords[0]+pCoords[2]*pCoords[2])>0.5*bvp->l){ //bottom surface
+     if (bvp->angleConstraints[0]){theta=bvp->angleConstraintValues[0]; hasRotationalConstraint=true;}
+    }
   }
   PetscReal nVec[3]={0,0,0};
   if (hasRotationalConstraint){
@@ -192,7 +199,7 @@ PetscErrorCode ResidualFunction(IGAPoint p,
     }
   }
   else{
-    //Line (edge) integral terms: Surface tnesion and slope boundary conditions (if any).
+    //Line (edge) integral terms: Surface tension and slope boundary conditions (if any).
     for (unsigned int n=0; n<(unsigned int)nen; n++) {
       for (unsigned int i=0; i<3; i++){
 	T Ru_i=0.0;

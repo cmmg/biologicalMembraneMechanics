@@ -18,9 +18,9 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 #include "include/solvers.h"
 
 //parameters
-#define bvpType 2
+#define bvpType 3
 #define stabilizationMethod 8 //Note: Method 8 will make the solution a bit time step dependent as previous time step solution (dx0dR, aPre terms, etc) are used.
-#define numLoadSteps 100
+#define numLoadSteps 1000
 
 #undef  __FUNCT__
 #define __FUNCT__ "setBCs"
@@ -144,7 +144,7 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     bvp.surfaceTensionAtBase=1.0;
     //topsurface
     ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr);
-    bvp.tractionOnTop=c_time*75;
+    bvp.tractionOnTop=c_time*300; //600;
 #ifndef  enableForceControl
     bvp.uDirichlet= (c_time)*bvp.l*0.05; //pull out height
     ierr = IGASetBoundaryValue(bvp.iga,0,1,1,bvp.uDirichlet);CHKERRQ(ierr); //Y at the top of the base
@@ -159,10 +159,11 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     //ierr = IGASetBoundaryValue(bvp.iga,0,0,2,0.0);CHKERRQ(ierr); 
 #endif
 
-    //Neumann
-    bvp.angleConstraints[0]=false; 
-    bvp.angleConstraints[1]=false; 
-    bvp.epsilon=bvp.kMean*0.0;
+    //Neumann. Comment out for Asymmetric mode.
+    ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=0 at the bottom of the tube
+    bvp.angleConstraints[0]=true; bvp.angleConstraintValues[0]=0;
+    bvp.epsilon=10*bvp.kMean;
+
     break;
   }
   //
@@ -192,7 +193,7 @@ int main(int argc, char *argv[]) {
   bvp.energyFactor=1.0;
   //material constants (in actual units)
   bvp.l=20.0;              //20nm
-  bvp.kMean=320.0;         //320pN-nm, mean curvature modulus
+  bvp.kMean=320.0*16.0;         //320pN-nm, mean curvature modulus
   bvp.kGaussian=0.0;       //Gaussian curvature modulus
   bvp.mu=1.0*bvp.kMean;       //shear modulus for stabilization terms
   bvp.lambda=10*bvp.kMean;        //penalty parameter
