@@ -38,6 +38,15 @@ PetscErrorCode FunctionFields(IGAPoint p, const PetscScalar *U, PetscScalar *R, 
   KinematicsStruct<PetscScalar> k;
   getKinematics<PetscScalar>(p, U, U, k);
 
+  //get u at point
+  double u[3];
+  for(unsigned int d=0; d<3; d++){
+    u[d]=0.0;
+    for(unsigned int n=0; n<(unsigned int) nen; n++){
+      u[d]+=N[n]*U[n][d];
+    }
+  }
+  
   //L2 projection residual
   const PetscReal (*N) = (const PetscReal (*)) p->shape[0];;  
   for(int n1=0; n1<nen; n1++){
@@ -45,13 +54,13 @@ PetscErrorCode FunctionFields(IGAPoint p, const PetscScalar *U, PetscScalar *R, 
       PetscReal val=0.0;
       switch (d1) {
       case 0:
-	val=k.H; break;
+	val=u[0]; break;
       case 1:
-	val=k.Kappa; break;
+	val=u[1]; break;
       case 2:
-	val=k.I1; break;
+	val=u[2]; break;
       case 3:
-	val=k.J; break;
+	val=k.H; break;
       }
       R[n1*dof+d1] = N[n1]*val*k.J_A;
     }
@@ -342,11 +351,6 @@ PetscErrorCode ProjectFields(Vec& U, void *ctx)
 
   //
 #ifdef enableForceControl
-  //double uValX, uValZ;
-  //VecStrideMax(U,0,NULL,&uValX);
-  //VecStrideMax(U,2,NULL,&uValZ);
-  //uVal=std::max(uValX,uValZ);
-  //Find min value of xMin across all procs.
   if (bvp->type!=3){  //non-pullout BVP
     PetscReal xMin=bvp->xMin;
     MPIU_Allreduce(&xMin,&xMin,1,MPIU_REAL,MPIU_MIN,PetscObjectComm((PetscObject)bvp->iga->draw_dm));

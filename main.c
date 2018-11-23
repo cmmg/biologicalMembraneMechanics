@@ -18,7 +18,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 #include "include/solvers.h"
 
 //parameters
-#define bvpType 3
+#define bvpType 1
 #define stabilizationMethod 8 //Note: Method 8 will make the solution a bit time step dependent as previous time step solution (dx0dR, aPre terms, etc) are used.
 #define numLoadSteps 100
 
@@ -84,20 +84,22 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     
     //Dirichlet
     ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the tube
-    ierr = IGASetBoundaryValue(bvp.iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the tube
     ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the tube
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the tube
+    //ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the tube
 #ifndef  enableForceControl
     ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); //init for X=uDirichlet at the bottom of the tube
     ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr); //init for Z=uDirichlet at the bottom of the tube
 #endif
     //Neumann
+    /*
     ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the bottom of the tube
     ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the top of the tube
     bvp.angleConstraints[0]=true; bvp.angleConstraintValues[0]=90;
     bvp.angleConstraints[1]=true; bvp.angleConstraintValues[1]=90;
     bvp.epsilon=bvp.kMean;
-
+    */
+    
 #ifndef  enableForceControl
     //Non-homogeneous Dirichlet BC values
     ierr = IGASetFixTable(bvp.iga,bvp.xDirichlet);CHKERRQ(ierr);    /* Set vector to read BCs from */
@@ -138,6 +140,8 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
 #endif
     break;
   case 3: //pullout BVP
+    //properties
+    bvp.kGaussian=-0.7*bvp.kMean; //Gaussian curvature modulus
     //bottom surface
     ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr);
     bvp.surfaceTensionAtBase=1.0;
@@ -192,7 +196,7 @@ int main(int argc, char *argv[]) {
   //material constants (in actual units)
   bvp.l=20.0;              //20nm
   bvp.kMean=320.0;         //320pN-nm, mean curvature modulus
-  bvp.kGaussian=-0.7*bvp.kMean;      //Gaussian curvature modulus
+  bvp.kGaussian=0.0;       //Gaussian curvature modulus
   bvp.mu=1.0*bvp.kMean;       //shear modulus for stabilization terms
   bvp.lambda=10*bvp.kMean;        //penalty parameter
   bvp.surfaceTensionAtBase=0.0;
