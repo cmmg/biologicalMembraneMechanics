@@ -20,7 +20,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 //parameters
 #define bvpType 3
 #define stabilizationMethod 8 //Note: Method 8 will make the solution a bit time step dependent as previous time step solution (dx0dR, aPre terms, etc) are used.
-#define numLoadSteps 1000
+#define numLoadSteps 2000
 
 #undef  __FUNCT__
 #define __FUNCT__ "setBCs"
@@ -138,32 +138,41 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     break;
   case 3: //pullout BVP
     //properties
+    bvp.kMean=320.0*32.0;         //320pN-nm, mean curvature modulus
     bvp.kGaussian=-0.7*bvp.kMean; //Gaussian curvature modulus
+    bvp.mu=1.0*bvp.kMean;
     //bottom surface
     ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr);
     bvp.surfaceTensionAtBase=1.0;
     //topsurface
     ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr);
-    bvp.tractionOnTop=c_time*300; //600;
-#ifndef  enableForceControl
-    bvp.uDirichlet= (c_time)*bvp.l*0.05; //pull out height
-    ierr = IGASetBoundaryValue(bvp.iga,0,1,1,bvp.uDirichlet);CHKERRQ(ierr); //Y at the top of the base
-#endif
-
+    bvp.tractionOnTop=c_time*450*3.0; //600;
+    if ((bvp.uMax>(bvp.l*3)) && (!bvp.holdLoad)){
+      bvp.holdTime=c_time;
+      bvp.holdLoad=true;
+      bvp.uOld=bvp.uMax;
+    }
+    if (bvp.holdLoad){
+      bvp.tractionOnTop=0.0; //250;
+      ierr = IGASetBoundaryValue(bvp.iga,0,1,1,bvp.uOld);CHKERRQ(ierr);
+      //
+      bvp.isCollar=true;
+      bvp.CollarLocation=bvp.l*1.45; //At the bottom
+      bvp.CollarHeight=bvp.l*0.1; 
+      bvp.CollarPressure=(c_time-bvp.holdTime)*8000;
+    }
+       
     //Dirichlet
     ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the base
     ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the base
     ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the base
-#ifndef  enableForceControl
-    //ierr = IGASetBoundaryValue(bvp.iga,0,0,0,0.0);CHKERRQ(ierr); 
-    //ierr = IGASetBoundaryValue(bvp.iga,0,0,2,0.0);CHKERRQ(ierr); 
-#endif
-
+    //ierr = IGASetBoundaryValue(bvp.iga,0,0,0,0.0);CHKERRQ(ierr); //Z=0 at the top of the base
+    //ierr = IGASetBoundaryValue(bvp.iga,0,0,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the base
+    
     //Neumann. Comment out for Asymmetric mode.
     ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=0 at the bottom of the tube
     bvp.angleConstraints[0]=true; bvp.angleConstraintValues[0]=0;
     bvp.epsilon=10*bvp.kMean;
-
     break;
   }
   //
@@ -193,7 +202,7 @@ int main(int argc, char *argv[]) {
   bvp.energyFactor=1.0;
   //material constants (in actual units)
   bvp.l=20.0;              //20nm
-  bvp.kMean=320.0*16.0;         //320pN-nm, mean curvature modulus
+  bvp.kMean=320.0;       //320pN-nm, mean curvature modulus
   bvp.kGaussian=0.0;       //Gaussian curvature modulus
   bvp.mu=1.0*bvp.kMean;       //shear modulus for stabilization terms
   bvp.lambda=10*bvp.kMean;        //penalty parameter
@@ -212,6 +221,7 @@ int main(int argc, char *argv[]) {
   bvp.CollarHelixPitch=0.0;
   bvp.CollarRadius=0.0;
   bvp.CollarPressure=0.0;
+  bvp.holdLoad=false;
   
   //processor zero for printing output in MPI jobs
   if(rank == 0){bvp.isProc0=true;}

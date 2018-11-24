@@ -41,6 +41,9 @@ struct BVPStruct{
   PetscReal CollarHelixPitch, CollarPressure;
   //
   PetscReal xMin;
+  //
+  PetscReal uOld, uMax, holdTime;
+  bool holdLoad;
 };
 
 #include "HelfrichModel.h"
@@ -180,8 +183,15 @@ PetscErrorCode ResidualFunction(IGAPoint p,
 	//body forces (force collar)
 	bool isCollar=false;
 	double CollarPressure=bvp->CollarPressure;
+	double yCoord=pCoords[1];
+	if (bvp->type==3){
+	  yCoord=k.x0[1];
+	}
 	if (bvp->isCollar){
-	  if ((pCoords[1]>=bvp->CollarLocation) && (pCoords[1]<=(bvp->CollarLocation+bvp->CollarHeight))) {isCollar=true; }
+	  if ((yCoord>=bvp->CollarLocation) && (yCoord<=(bvp->CollarLocation+bvp->CollarHeight))) {
+	    isCollar=true;
+	    //std::cout << yCoord << " ";
+	  }
 	}
 	if (isCollar) {
 	  if (i!=1){ //remove Y component
