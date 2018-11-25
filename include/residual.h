@@ -195,7 +195,9 @@ PetscErrorCode ResidualFunction(IGAPoint p,
 	}
 	if (isCollar) {
 	  if (i!=1){ //remove Y component
-	    Ru_i+=-((L*L*L)/K)*N[n]*CollarPressure*k.normal[i]; 
+	    double factor=1.0;
+	    //if (i==2) factor=0.0;
+	    Ru_i+=-((L*L*L)/K)*N[n]*CollarPressure*k.normal[i]*factor; 
 	  }
 	}
 	

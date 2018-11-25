@@ -20,7 +20,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 //parameters
 #define bvpType 3
 #define stabilizationMethod 8 //Note: Method 8 will make the solution a bit time step dependent as previous time step solution (dx0dR, aPre terms, etc) are used.
-#define numLoadSteps 2000
+#define numLoadSteps 200
 
 #undef  __FUNCT__
 #define __FUNCT__ "setBCs"
@@ -153,15 +153,16 @@ PetscErrorCode setBCs(BVPStruct& bvp, const Vec U, PetscInt it_number, PetscReal
     }
     //set BCs
     if (bvp.holdLoad){ //pinching
-      bvp.surfaceTensionAtBase=0.0;
-      bvp.tractionOnTop=0.0; 
+      bvp.surfaceTensionAtBase=1.0;
+      ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr);
+      bvp.tractionOnTop=(1.0/(1+std::exp(6-18*bvp.holdTime)))*5000;
       //
       bvp.isCollar=true;
-      bvp.CollarLocation=bvp.l*0.95; //At the bottom
+      bvp.CollarLocation=bvp.l*0.25; //At the bottom
       bvp.CollarHeight=bvp.l*0.1; 
-      bvp.CollarPressure=(c_time-bvp.holdTime)*20000;
+      bvp.CollarPressure=(c_time-bvp.holdTime)*7500;
       //
-      ierr = IGASetBoundaryValue(bvp.iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the tube
+      //ierr = IGASetBoundaryValue(bvp.iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the tube
       ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the tube
       ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the tube
       ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the base
@@ -176,7 +177,8 @@ PetscErrorCode setBCs(BVPStruct& bvp, const Vec U, PetscInt it_number, PetscReal
       bvp.surfaceTensionAtBase=1.0;
       //topsurface
       ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr);
-      bvp.tractionOnTop=c_time*5000;
+      //bvp.tractionOnTop=(1.0+std::tanh(-4+c_time*14))*0.5*10000;
+      bvp.tractionOnTop=(1.0/(1+std::exp(6-18*c_time)))*5000;
       ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the base
       ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the base
       ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the base
