@@ -24,7 +24,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 
 #undef  __FUNCT__
 #define __FUNCT__ "setBCs"
-PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
+PetscErrorCode setBCs(BVPStruct& bvp, const Vec U, PetscInt it_number, PetscReal c_time)
 {
   PetscFunctionBegin; 
   PetscErrorCode ierr;
@@ -137,38 +137,51 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
 #endif
     break;
   case 3: //pullout BVP
+#ifndef  enableForceControl
+    std::cout << "displacement control not applicable to pullout BVP\n"; exit(-1);
+#endif
     //properties
-    bvp.kMean=320.0*32.0;         //320pN-nm, mean curvature modulus
-    bvp.kGaussian=-0.7*bvp.kMean; //Gaussian curvature modulus
+    bvp.kMean=320.0*64.0*4;          //320pN-nm, mean curvature modulus
+    bvp.kGaussian=-0.7*bvp.kMean;  //Gaussian curvature modulus
     bvp.mu=1.0*bvp.kMean;
-    //bottom surface
-    ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr);
-    bvp.surfaceTensionAtBase=1.0;
-    //topsurface
-    ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr);
-    bvp.tractionOnTop=c_time*450*3.0; //600;
-    if ((bvp.uMax>(bvp.l*3)) && (!bvp.holdLoad)){
+
+    //check for hold height
+    if ((bvp.uMax>(bvp.l*2)) && (!bvp.holdLoad)){
       bvp.holdTime=c_time;
       bvp.holdLoad=true;
-      bvp.uOld=bvp.uMax;
+      bvp.uHold=U;
     }
-    if (bvp.holdLoad){
-      bvp.tractionOnTop=0.0; //250;
-      ierr = IGASetBoundaryValue(bvp.iga,0,1,1,bvp.uOld);CHKERRQ(ierr);
+    //set BCs
+    if (bvp.holdLoad){ //pinching
+      bvp.surfaceTensionAtBase=0.0;
+      bvp.tractionOnTop=0.0; 
       //
       bvp.isCollar=true;
-      bvp.CollarLocation=bvp.l*1.45; //At the bottom
+      bvp.CollarLocation=bvp.l*0.95; //At the bottom
       bvp.CollarHeight=bvp.l*0.1; 
-      bvp.CollarPressure=(c_time-bvp.holdTime)*8000;
+      bvp.CollarPressure=(c_time-bvp.holdTime)*20000;
+      //
+      ierr = IGASetBoundaryValue(bvp.iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the tube
+      ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the tube
+      ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the tube
+      ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the base
+      ierr = IGASetBoundaryValue(bvp.iga,0,0,2,0.0);CHKERRQ(ierr); //X=0 at the bottom of the base
+      ierr = IGASetBoundaryValue(bvp.iga,0,0,0,0.0);CHKERRQ(ierr); //Z=0 at the bottom of the base
+      //Non-homogeneous Dirichlet BC values
+      ierr = IGASetFixTable(bvp.iga,bvp.uHold);CHKERRQ(ierr);    /* Set vector to read BCs from uHold*/
     }
-       
-    //Dirichlet
-    ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the base
-    ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the base
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the base
-    //ierr = IGASetBoundaryValue(bvp.iga,0,0,0,0.0);CHKERRQ(ierr); //Z=0 at the top of the base
-    //ierr = IGASetBoundaryValue(bvp.iga,0,0,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the base
-    
+    else{ //pullout and before pinching
+      //bottom surface
+      ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr);
+      bvp.surfaceTensionAtBase=1.0;
+      //topsurface
+      ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr);
+      bvp.tractionOnTop=c_time*5000;
+      ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the base
+      ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the base
+      ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the base
+    }
+
     //Neumann. Comment out for Asymmetric mode.
     ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=0 at the bottom of the tube
     bvp.angleConstraints[0]=true; bvp.angleConstraintValues[0]=0;
@@ -221,8 +234,11 @@ int main(int argc, char *argv[]) {
   bvp.CollarHelixPitch=0.0;
   bvp.CollarRadius=0.0;
   bvp.CollarPressure=0.0;
+  //
+  bvp.holdTime=0.0;
   bvp.holdLoad=false;
-  
+  bvp.uMax=0.0
+    ;
   //processor zero for printing output in MPI jobs
   if(rank == 0){bvp.isProc0=true;}
   else {bvp.isProc0=false;}
@@ -287,7 +303,7 @@ int main(int argc, char *argv[]) {
   ierr = IGASetFormIEFunction(bvp.iga,Residual,&bvp);CHKERRQ(ierr);
   ierr = IGASetFormIEJacobian(bvp.iga,Jacobian,&bvp);CHKERRQ(ierr);
   //
-  setBCs(bvp, 0, 0.0);
+  setBCs(bvp, U, 0, 0.0);
   
   //open file for U,R output
   if (bvp.isProc0){

@@ -6,7 +6,7 @@
 #if !defined(OUTPUT_H_)
 #define OUTPUT_H_
 
-PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time);
+PetscErrorCode setBCs(BVPStruct& bvp, const Vec U, PetscInt it_number, PetscReal c_time);
 
 #undef __FUNCT__
 #define __FUNCT__ "OutputMonitor"
@@ -32,7 +32,7 @@ PetscErrorCode OutputMonitor(TS ts,PetscInt it_number,PetscReal c_time,Vec U,voi
   ProjectFields(U, ctx);
   
   //setup BCs for next load increment 
-  setBCs(*bvp, it_number, c_time);
+  setBCs(*bvp, U, it_number, c_time);
   //
   PetscFunctionReturn(0);
 }

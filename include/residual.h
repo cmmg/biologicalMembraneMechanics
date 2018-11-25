@@ -25,7 +25,7 @@ struct BVPStruct{
   //B.C's
   PetscInt type;
   PetscReal uDirichlet;
-  Vec xDirichlet;
+  Vec xDirichlet, uHold;
   bool angleConstraints[2];
   PetscReal angleConstraintValues[2];
   //load stepping
@@ -42,7 +42,7 @@ struct BVPStruct{
   //
   PetscReal xMin;
   //
-  PetscReal uOld, uMax, holdTime;
+  PetscReal uMax, holdTime;
   bool holdLoad;
 };
 
