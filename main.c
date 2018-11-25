@@ -20,7 +20,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 //parameters
 #define bvpType 3
 #define stabilizationMethod 8 //Note: Method 8 will make the solution a bit time step dependent as previous time step solution (dx0dR, aPre terms, etc) are used.
-#define numLoadSteps 200
+#define numLoadSteps 400
 
 #undef  __FUNCT__
 #define __FUNCT__ "setBCs"
@@ -141,21 +141,22 @@ PetscErrorCode setBCs(BVPStruct& bvp, const Vec U, PetscInt it_number, PetscReal
     std::cout << "displacement control not applicable to pullout BVP\n"; exit(-1);
 #endif
     //properties
-    bvp.kMean=320.0*64.0*4;          //320pN-nm, mean curvature modulus
+    bvp.kMean=320.0;          //320pN-nm, mean curvature modulus
     bvp.kGaussian=-0.7*bvp.kMean;  //Gaussian curvature modulus
     bvp.mu=1.0*bvp.kMean;
 
     //check for hold height
-    if ((bvp.uMax>(bvp.l*2)) && (!bvp.holdLoad)){
+    if ((bvp.uMax>(bvp.l*2)) && (!bvp.isLoadHeld)){
       bvp.holdTime=c_time;
-      bvp.holdLoad=true;
+      bvp.isLoadHeld=true;
+      bvp.holdLoad=bvp.tractionOnTop;
       bvp.uHold=U;
     }
     //set BCs
-    if (bvp.holdLoad){ //pinching
+    if (bvp.isLoadHeld){ //pinching
       bvp.surfaceTensionAtBase=1.0;
       ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr);
-      bvp.tractionOnTop=(1.0/(1+std::exp(6-18*bvp.holdTime)))*5000;
+      bvp.tractionOnTop=bvp.holdLoad; 
       //
       bvp.isCollar=true;
       bvp.CollarLocation=bvp.l*0.25; //At the bottom
@@ -178,7 +179,7 @@ PetscErrorCode setBCs(BVPStruct& bvp, const Vec U, PetscInt it_number, PetscReal
       //topsurface
       ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr);
       //bvp.tractionOnTop=(1.0+std::tanh(-4+c_time*14))*0.5*10000;
-      bvp.tractionOnTop=(1.0/(1+std::exp(6-18*c_time)))*5000;
+      bvp.tractionOnTop=(1.0/(1+std::exp(6-18*c_time)))*12000;
       ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the base
       ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the base
       ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the base
@@ -216,7 +217,7 @@ int main(int argc, char *argv[]) {
   bvp.forceFactor=1.0; 
   bvp.energyFactor=1.0;
   //material constants (in actual units)
-  bvp.l=20.0;              //20nm
+  bvp.l=40.0;              //20nm
   bvp.kMean=320.0;       //320pN-nm, mean curvature modulus
   bvp.kGaussian=0.0;       //Gaussian curvature modulus
   bvp.mu=1.0*bvp.kMean;       //shear modulus for stabilization terms
@@ -238,7 +239,8 @@ int main(int argc, char *argv[]) {
   bvp.CollarPressure=0.0;
   //
   bvp.holdTime=0.0;
-  bvp.holdLoad=false;
+  bvp.holdLoad=0.0;
+  bvp.isLoadHeld=false;
   bvp.uMax=0.0
     ;
   //processor zero for printing output in MPI jobs
@@ -265,7 +267,8 @@ int main(int argc, char *argv[]) {
     ierr = IGARead(iga,"meshes/base90DegMeshr80h40C1H2R.dat"); CHKERRQ(ierr);
     break;
   case 3: //pullout BVP
-    ierr = IGARead(iga,"meshes/baseCircleMeshr40h80C1.dat"); CHKERRQ(ierr);
+    ierr = IGARead(iga,"meshes/baseCircleMeshRad40h40r40.dat"); CHKERRQ(ierr);
+    //ierr = IGARead(iga,"meshes/baseCircleMeshr40h80C1.dat"); CHKERRQ(ierr);
     //ierr = IGARead(iga,"meshes/baseCircleMeshr60h40C1.dat"); CHKERRQ(ierr);
     break;
   }

@@ -42,8 +42,8 @@ struct BVPStruct{
   //
   PetscReal xMin;
   //
-  PetscReal uMax, holdTime;
-  bool holdLoad;
+  PetscReal uMax, holdTime, holdLoad;
+  bool isLoadHeld; 
 };
 
 #include "HelfrichModel.h"
@@ -190,7 +190,6 @@ PetscErrorCode ResidualFunction(IGAPoint p,
 	if (bvp->isCollar){
 	  if ((yCoord>=bvp->CollarLocation) && (yCoord<=(bvp->CollarLocation+bvp->CollarHeight))) {
 	    isCollar=true;
-	    //std::cout << yCoord << " ";
 	  }
 	}
 	if (isCollar) {

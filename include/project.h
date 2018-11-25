@@ -366,7 +366,7 @@ PetscErrorCode ProjectFields(Vec& U, void *ctx)
   else{ //pullOut BVP
     VecStrideMax(U,1,NULL,&uVal);
     bvp->uMax=uVal;
-    rVal=bvp->tractionOnTop*2*3.142*(bvp->l/100.0); //Force (traction*circumference) 
+    rVal=bvp->tractionOnTop; //*2*3.142*(bvp->l/100.0); //Force (traction*circumference) 
   }
 #else
   if (bvp->type!=3){
