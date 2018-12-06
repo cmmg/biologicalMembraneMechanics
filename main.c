@@ -170,7 +170,7 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     bvp.isCollarHelix=true;
     bvp.CollarLocation=bvp.l*0.95;
     bvp.CollarHeight=bvp.l*0.1;
-    bvp.CollarHelixPitch=bvp.CollarHeight*0; //set the pitch here as increments of collar height
+    bvp.CollarHelixPitch=bvp.CollarHeight*2; //set the pitch here as increments of collar height
     bvp.CollarRadius=bvp.l;
     bvp.CollarPressure=c_time*6.0;
     
