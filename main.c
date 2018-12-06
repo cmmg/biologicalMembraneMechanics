@@ -170,9 +170,9 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     bvp.isCollarHelix=true;
     bvp.CollarLocation=bvp.l*0.95;
     bvp.CollarHeight=bvp.l*0.1;
-    bvp.CollarHelixPitch=bvp.CollarHeight*0;
+    bvp.CollarHelixPitch=bvp.CollarHeight*0; //set the pitch here as increments of collar height
     bvp.CollarRadius=bvp.l;
-    bvp.CollarPressure=c_time*10;
+    bvp.CollarPressure=c_time*6.0;
     
     //bvp.CollarLocation=bvp.l*0.0; //At the bottom
     //bvp.CollarHeight=bvp.l*0.025; //0.5nm (20*0.025)
@@ -183,10 +183,10 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
 #endif
     
     //Dirichlet
-    ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the tube
-    ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the tube
-    ierr = IGASetBoundaryValue(bvp.iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,0.0);CHKERRQ(ierr); //X=0 at the bottom of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,0.0);CHKERRQ(ierr); //Z=0 at the bottom of the tube
     ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the tube
 
     //Neumann BC to ensure base slope.
     //ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the bottom of the tube
