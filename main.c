@@ -18,7 +18,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 #include "include/solvers.h"
 
 //parameters
-#define bvpType 2
+#define bvpType 4
 #define stabilizationMethod 8 //Note: Method 8 will make the solution a bit time step dependent as previous time step solution (dx0dR, aPre terms, etc) are used.
 #define numLoadSteps 100
 
@@ -164,6 +164,42 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     bvp.angleConstraints[1]=false; 
     bvp.epsilon=bvp.kMean*0.0;
     break;
+    //
+  case 4: //helix BVP
+#ifdef enableForceControl
+    bvp.isCollarHelix=true;
+    bvp.CollarLocation=bvp.l*0.95;
+    bvp.CollarHeight=bvp.l*0.1;
+    bvp.CollarHelixPitch=bvp.CollarHeight*0;
+    bvp.CollarRadius=bvp.l;
+    bvp.CollarPressure=c_time*10;
+    
+    //bvp.CollarLocation=bvp.l*0.0; //At the bottom
+    //bvp.CollarHeight=bvp.l*0.025; //0.5nm (20*0.025)
+    //bvp.CollarPressure=c_time*55;
+#else
+    bvp.uDirichlet=0.9*c_time*bvp.l*1.0; //X=Z=uDirichlet at the bottom of the tube (displacement control)
+    ProjectL2(&bvp);
+#endif
+    
+    //Dirichlet
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the tube
+
+    //Neumann BC to ensure base slope.
+    //ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the bottom of the tube
+    //ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the top of the tube
+    //bvp.angleConstraints[0]=true; bvp.angleConstraintValues[0]=90;
+    //bvp.angleConstraints[1]=true; bvp.angleConstraintValues[1]=90;
+    //bvp.epsilon=bvp.kMean;
+    
+#ifndef  enableForceControl
+    std::cout << "Displacement BC not implemented for Helix BVP.\n";
+    exit(-1);
+#endif
+    break;
   }
   //
   PetscFunctionReturn(0);
@@ -238,6 +274,10 @@ int main(int argc, char *argv[]) {
   case 3: //pullout BVP
     ierr = IGARead(iga,"meshes/baseCircleMeshr40h80C1.dat"); CHKERRQ(ierr);
     //ierr = IGARead(iga,"meshes/baseCircleMeshr60h40C1.dat"); CHKERRQ(ierr);
+    break;
+  case 4: //helix BVP
+    //ierr = IGARead(iga,"meshes/tubeMeshr160h80C1.dat"); CHKERRQ(ierr);
+    ierr = IGARead(iga,"meshes/tubeMeshr80h80C1H2R.dat"); CHKERRQ(ierr);
     break;
   }
   ierr = IGASetFromOptions(iga);CHKERRQ(ierr);

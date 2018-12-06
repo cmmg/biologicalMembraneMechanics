@@ -86,8 +86,8 @@ PetscErrorCode ResidualFunction(IGAPoint p,
       //stabization terms
       switch (bvp->stabilization) {
       case 0: //no stabilization
-	sigma_contra_StabilizationTerm=0.0;
-	sigma_contra_outPlane[i][j]+=0.0; break;
+	std::cout << "Stabilization option zero is now defunct.\n";
+	exit(-1); //no implementation.
       case 1: //A method
 	sigma_contra_StabilizationTerm=(mu/(J))*(k.A_contra[i][j]-k.a_contra[i][j]); 
 	sigma_contra_outPlane[i][j]+=sigma_contra_StabilizationTerm; break;
@@ -176,12 +176,24 @@ PetscErrorCode ResidualFunction(IGAPoint p,
 	if (bvp->isCollar){
 	  if ((pCoords[1]>=bvp->CollarLocation) && (pCoords[1]<=(bvp->CollarLocation+bvp->CollarHeight))) {isCollar=true; }
 	}
+	else if (bvp->isCollarHelix){
+	  unsigned int numTracePoints=100;
+	  for (unsigned int t=0; t<numTracePoints; t++){
+	    PetscReal theta=(((double)t)/numTracePoints)*2*PI;
+	    PetscReal x=bvp->CollarRadius*std::cos(theta);
+	    PetscReal y=bvp->CollarRadius*std::sin(theta);
+	    PetscReal z=bvp->CollarLocation+theta*bvp->CollarHelixPitch/(2*PI);
+	    if (std::sqrt(std::pow(pCoords[0]-x,2)+std::pow(pCoords[1]-z,2)+std::pow(pCoords[2]-y,2))<=0.5*bvp->CollarHeight) {
+	      isCollar=true; break;
+	    }
+	  }
+	}
+	//
 	if (isCollar) {
 	  if (i!=1){ //remove Y component
 	    Ru_i+=-((L*L*L)/K)*N[n]*CollarPressure*k.normal[i]; 
 	  }
 	}
-	
 	//
 	R[n*dof+i] = Ru_i*k.J_a; 
       }

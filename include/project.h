@@ -137,18 +137,55 @@ PetscErrorCode FunctionReactions(IGAPoint p, const PetscScalar *U, PetscScalar *
   PetscInt nen, dof;
   IGAPointGetSizes(p,0,&nen,&dof);
   PetscReal pCoords[3]; IGAPointFormGeomMap(p,pCoords);
-  //
-  if (bvp->type!=3){ //non-pullout BVP
-    if (std::abs(pCoords[1])<0.5*bvp->l){ 
-      Residual(p, 0, 0, 0, U, 0, U, R, ctx);
-      for (unsigned int n=0; n<(unsigned int)(nen); n++) R[n*dof+1]=0.0; //null the y component 
+
+   //get kinematic quantities
+  KinematicsStruct<PetscScalar> k;
+  getKinematics<PetscScalar>(p, U, U, k);
+  const PetscReal (*N) = (const PetscReal (*)) p->shape[0];
+  
+  if (bvp->type==4){ //helix BVP
+    //body forces (force collar)
+    bool isCollar=false;
+    double CollarPressure=1.0; 
+    if (bvp->isCollarHelix){
+      unsigned int numTracePoints=100;
+      for (unsigned int t=0; t<numTracePoints; t++){
+	PetscReal theta=(((double)t)/numTracePoints)*2*PI;
+	PetscReal x=bvp->CollarRadius*std::cos(theta);
+	PetscReal y=bvp->CollarRadius*std::sin(theta);
+	PetscReal z=bvp->CollarLocation+theta*bvp->CollarHelixPitch/(2*PI);
+	if (std::sqrt(std::pow(pCoords[0]-x,2)+std::pow(pCoords[1]-z,2)+std::pow(pCoords[2]-y,2))<=0.5*bvp->CollarHeight) {
+	  isCollar=true; break;
+	}
+      }
     }
-    else{
-      for (unsigned int n=0; n<(unsigned int)(nen*dof); n++) R[n]=0.0; 
+    //
+    if (isCollar) {
+      for (unsigned int n=0; n<(unsigned int)(nen*dof); n++){
+	for (unsigned int i=0; i<3; i++){
+	  double Ru_i=0.0;
+	  if (i!=1){ //remove Y component
+	    Ru_i+=-N[n]*CollarPressure*k.normal[i]; 
+	  }
+	  R[n*dof+i] = Ru_i*k.J_a;
+	}
+      }
     }
   }
   else{
-    Residual(p, 0, 0, 0, U, 0, U, R, ctx); //This is for pullout BVP
+    //
+    if (bvp->type!=3){ //non-pullout BVP
+      if (std::abs(pCoords[1])<0.5*bvp->l){ 
+	Residual(p, 0, 0, 0, U, 0, U, R, ctx);
+	for (unsigned int n=0; n<(unsigned int)(nen); n++) R[n*dof+1]=0.0; //null the y component 
+      }
+      else{
+	for (unsigned int n=0; n<(unsigned int)(nen*dof); n++) R[n]=0.0; 
+      }
+    }
+    else{
+      Residual(p, 0, 0, 0, U, 0, U, R, ctx); //This is for pullout BVP
+    }
   }
   //
   
