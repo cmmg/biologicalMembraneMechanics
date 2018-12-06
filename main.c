@@ -168,11 +168,12 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
   case 4: //helix BVP
 #ifdef enableForceControl
     bvp.isCollarHelix=true;
-    bvp.CollarLocation=bvp.l*0.95;
+    //bvp.CollarLocation=bvp.l*0.95; //tube geometry
+    bvp.CollarLocation=bvp.l*0.45; //base geometry
     bvp.CollarHeight=bvp.l*0.1;
     bvp.CollarHelixPitch=bvp.CollarHeight*4; //set the pitch here as increments of collar height (0x, 2x, 4x, etc.)
     bvp.CollarRadius=bvp.l;
-    bvp.CollarPressure=c_time*6.0;
+    bvp.CollarPressure=c_time*6.2;
     
     //bvp.CollarLocation=bvp.l*0.0; //At the bottom
     //bvp.CollarHeight=bvp.l*0.025; //0.5nm (20*0.025)
@@ -183,8 +184,8 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
 #endif
     
     //Dirichlet
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,0.0);CHKERRQ(ierr); //X=0 at the bottom of the tube
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,0.0);CHKERRQ(ierr); //Z=0 at the bottom of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the bottom of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the bottom of the tube
     ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the tube
     ierr = IGASetBoundaryValue(bvp.iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the tube
     
@@ -270,7 +271,8 @@ int main(int argc, char *argv[]) {
     break;
   case 4: //helix BVP
     //ierr = IGARead(iga,"meshes/tubeMeshr160h80C1.dat"); CHKERRQ(ierr);
-    ierr = IGARead(iga,"meshes/tubeMeshr80h80C1H2R.dat"); CHKERRQ(ierr);
+    //ierr = IGARead(iga,"meshes/tubeMeshr80h80C1H2R.dat"); CHKERRQ(ierr);
+    ierr = IGARead(iga,"meshes/base90DegMeshr40h80C1H2R.dat"); CHKERRQ(ierr);
     break;
   }
   ierr = IGASetFromOptions(iga);CHKERRQ(ierr);
