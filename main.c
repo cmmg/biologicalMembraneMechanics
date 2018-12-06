@@ -170,7 +170,7 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     bvp.isCollarHelix=true;
     bvp.CollarLocation=bvp.l*0.95;
     bvp.CollarHeight=bvp.l*0.1;
-    bvp.CollarHelixPitch=bvp.CollarHeight*2; //set the pitch here as increments of collar height
+    bvp.CollarHelixPitch=bvp.CollarHeight*4; //set the pitch here as increments of collar height (0x, 2x, 4x, etc.)
     bvp.CollarRadius=bvp.l;
     bvp.CollarPressure=c_time*6.0;
     
@@ -187,13 +187,6 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     ierr = IGASetBoundaryValue(bvp.iga,0,0,2,0.0);CHKERRQ(ierr); //Z=0 at the bottom of the tube
     ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the tube
     ierr = IGASetBoundaryValue(bvp.iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the tube
-
-    //Neumann BC to ensure base slope.
-    //ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the bottom of the tube
-    //ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the top of the tube
-    //bvp.angleConstraints[0]=true; bvp.angleConstraintValues[0]=90;
-    //bvp.angleConstraints[1]=true; bvp.angleConstraintValues[1]=90;
-    //bvp.epsilon=bvp.kMean;
     
 #ifndef  enableForceControl
     std::cout << "Displacement BC not implemented for Helix BVP.\n";
