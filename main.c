@@ -171,8 +171,10 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     bvp.CollarHeight=bvp.l*0.25; //5nm
     //bvp.CollarLocation=bvp.l*26.0; //pinch at tube
     //bvp.CollarPressure=c_time*19;  //pinch at tube
-    bvp.CollarLocation=bvp.l*38; //pinch at cap
-    bvp.CollarPressure=c_time*24;  //pinch at cap
+    //bvp.CollarLocation=bvp.l*38; //pinch at cap
+    //bvp.CollarPressure=c_time*24;  //pinch at cap
+    bvp.CollarLocation=bvp.l*2; //pinch at base
+    bvp.CollarPressure=c_time*90;  //pinch at base
 #endif
     
     //Dirichlet
