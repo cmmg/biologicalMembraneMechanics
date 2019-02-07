@@ -18,9 +18,9 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 #include "include/solvers.h"
 
 //parameters
-#define bvpType 3
+#define bvpType 4
 #define stabilizationMethod 8 //Note: Method 8 will make the solution a bit time step dependent as previous time step solution (dx0dR, aPre terms, etc) are used.
-#define numLoadSteps 1000
+#define numLoadSteps 100
 
 #undef  __FUNCT__
 #define __FUNCT__ "setBCs"
@@ -165,6 +165,29 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     bvp.epsilon=10*bvp.kMean;
 
     break;
+  case 4:
+#ifdef enableForceControl
+    bvp.isCollar=true;
+    bvp.CollarLocation=bvp.l*26.0; //At the bottom
+    bvp.CollarHeight=bvp.l*0.25; //5nm
+    bvp.CollarPressure=c_time*19;
+#endif
+    
+    //Dirichlet
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); 
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,1,/*dummy*/0.0);CHKERRQ(ierr);
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr);
+    
+    //Neumann. Comment out for Asymmetric mode.
+    //ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the bottom of the tube
+    //ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the top of the tube
+    //bvp.angleConstraints[0]=true; bvp.angleConstraintValues[0]=90;
+    //bvp.angleConstraints[1]=true; bvp.angleConstraintValues[1]=90;
+    //bvp.epsilon=bvp.kMean;
+    break;
   }
   //
   PetscFunctionReturn(0);
@@ -239,6 +262,9 @@ int main(int argc, char *argv[]) {
   case 3: //pullout BVP
     ierr = IGARead(iga,"meshes/baseCircleMeshr40h80C1.dat"); CHKERRQ(ierr);
     //ierr = IGARead(iga,"meshes/baseCircleMeshr60h40C1.dat"); CHKERRQ(ierr);
+    break;
+  case 4: //pullout BVP
+    ierr = IGARead(iga,"meshes/tubeFullr40h80C1.dat"); CHKERRQ(ierr);
     break;
   }
   ierr = IGASetFromOptions(iga);CHKERRQ(ierr);
