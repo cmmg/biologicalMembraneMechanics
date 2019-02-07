@@ -168,9 +168,11 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
   case 4:
 #ifdef enableForceControl
     bvp.isCollar=true;
-    bvp.CollarLocation=bvp.l*26.0; //At the bottom
     bvp.CollarHeight=bvp.l*0.25; //5nm
-    bvp.CollarPressure=c_time*19;
+    //bvp.CollarLocation=bvp.l*26.0; //pinch at tube
+    //bvp.CollarPressure=c_time*19;  //pinch at tube
+    bvp.CollarLocation=bvp.l*38; //pinch at cap
+    bvp.CollarPressure=c_time*24;  //pinch at cap
 #endif
     
     //Dirichlet
