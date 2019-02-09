@@ -168,29 +168,29 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
   case 4:
 #ifdef enableForceControl
     bvp.isCollar=true;
-    bvp.CollarHeight=bvp.l*0.25; //5nm
+    bvp.CollarHeight=bvp.l*0.2; //4nm
     //bvp.CollarLocation=bvp.l*26.0; //pinch at tube
-    //bvp.CollarPressure=c_time*19;  //pinch at tube
+    //bvp.CollarPressure=c_time*18;  //pinch at tube
     //bvp.CollarLocation=bvp.l*38; //pinch at cap
     //bvp.CollarPressure=c_time*24;  //pinch at cap
-    bvp.CollarLocation=bvp.l*2; //pinch at base
-    bvp.CollarPressure=c_time*90;  //pinch at base
+    //
+    //bvp.CollarLocation=bvp.l*0.0; //pinch at base
+    //bvp.CollarPressure=c_time*17;  //pinch at base
+    //bvp.CollarLocation=bvp.l*2.0; //pinch at tube
+    //bvp.CollarPressure=c_time*31;  //pinch at tube
+    bvp.CollarLocation=bvp.l*4.1; //pinch at cap
+    bvp.CollarPressure=c_time*41;  //pinch at cap
 #endif
     
     //Dirichlet
     ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the tube
     ierr = IGASetBoundaryValue(bvp.iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the tube
     ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the tube
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); 
     ierr = IGASetBoundaryValue(bvp.iga,0,0,1,/*dummy*/0.0);CHKERRQ(ierr);
+    //comment out for tube and cap BVP
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); 
     ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr);
     
-    //Neumann. Comment out for Asymmetric mode.
-    //ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the bottom of the tube
-    //ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the top of the tube
-    //bvp.angleConstraints[0]=true; bvp.angleConstraintValues[0]=90;
-    //bvp.angleConstraints[1]=true; bvp.angleConstraintValues[1]=90;
-    //bvp.epsilon=bvp.kMean;
     break;
   }
   //
@@ -222,14 +222,17 @@ int main(int argc, char *argv[]) {
   bvp.l=20.0;              //20nm
   bvp.kMean=320.0*16.0;         //320pN-nm, mean curvature modulus
   bvp.kGaussian=0.0;       //Gaussian curvature modulus
-  bvp.mu=1.0*bvp.kMean;       //shear modulus for stabilization terms
+  bvp.mu=1*bvp.kMean;       //shear modulus for stabilization terms
   bvp.lambda=10*bvp.kMean;        //penalty parameter
   bvp.surfaceTensionAtBase=0.0;
   bvp.tractionOnTop=0.0;
   bvp.epsilon=0.0;       //penalty parameter for rotational constraints
-  bvp.xMin=bvp.l;
-  //
   bvp.type=bvpType;
+  bvp.xMin=bvp.l;
+  if (bvp.type==4){
+    bvp.xMin=2*bvp.l;
+  }
+  //
   bvp.stabilization=stabilizationMethod;
   bvp.c_time=0.0;
   bvp.isCollar=false;
@@ -268,7 +271,8 @@ int main(int argc, char *argv[]) {
     //ierr = IGARead(iga,"meshes/baseCircleMeshr60h40C1.dat"); CHKERRQ(ierr);
     break;
   case 4: //pullout BVP
-    ierr = IGARead(iga,"meshes/tubeFullr40h80C1.dat"); CHKERRQ(ierr);
+    //ierr = IGARead(iga,"meshes/tubeFullr40h30C1.dat"); CHKERRQ(ierr); //for base BVP
+    ierr = IGARead(iga,"meshes/tubeFullr40h30C1Cap.dat"); CHKERRQ(ierr); //for tube, cap BVP
     break;
   }
   ierr = IGASetFromOptions(iga);CHKERRQ(ierr);
