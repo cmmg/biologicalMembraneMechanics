@@ -169,15 +169,11 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
 #ifdef enableForceControl
     bvp.isCollar=true;
     bvp.CollarHeight=bvp.l*0.2; //4nm
-    //bvp.CollarLocation=bvp.l*26.0; //pinch at tube
-    //bvp.CollarPressure=c_time*18;  //pinch at tube
-    //bvp.CollarLocation=bvp.l*38; //pinch at cap
-    //bvp.CollarPressure=c_time*24;  //pinch at cap
     //
-    //bvp.CollarLocation=bvp.l*0.0; //pinch at base
-    //bvp.CollarPressure=c_time*17;  //pinch at base
-    bvp.CollarLocation=bvp.l*2.0; //pinch at tube
-    bvp.CollarPressure=c_time*31;  //pinch at tube
+    bvp.CollarLocation=bvp.l*0.0; //pinch at base
+    bvp.CollarPressure=c_time*16.5;  //pinch at base
+    //bvp.CollarLocation=bvp.l*2.0; //pinch at tube
+    //bvp.CollarPressure=c_time*31;  //pinch at tube
     //bvp.CollarLocation=bvp.l*4.1; //pinch at cap
     //bvp.CollarPressure=c_time*41;  //pinch at cap
 #endif
@@ -187,9 +183,9 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     ierr = IGASetBoundaryValue(bvp.iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the tube
     ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the tube
     ierr = IGASetBoundaryValue(bvp.iga,0,0,1,/*dummy*/0.0);CHKERRQ(ierr);
-    //comment out for tube and cap BVP
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); 
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr);
+    //comment for base BVP
+    //ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); 
+    //ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr);
     
     break;
   }
@@ -271,8 +267,8 @@ int main(int argc, char *argv[]) {
     //ierr = IGARead(iga,"meshes/baseCircleMeshr60h40C1.dat"); CHKERRQ(ierr);
     break;
   case 4: //pullout BVP
-    //ierr = IGARead(iga,"meshes/tubeFullr40h30C1.dat"); CHKERRQ(ierr); //for base BVP
-    ierr = IGARead(iga,"meshes/tubeFullr40h30C1Cap.dat"); CHKERRQ(ierr); //for tube, cap BVP
+    ierr = IGARead(iga,"meshes/tubeFullr40h30C1.dat"); CHKERRQ(ierr); //for base BVP
+    //ierr = IGARead(iga,"meshes/tubeFullr40h30C1Cap.dat"); CHKERRQ(ierr); //for tube, cap BVP
     break;
   }
   ierr = IGASetFromOptions(iga);CHKERRQ(ierr);
