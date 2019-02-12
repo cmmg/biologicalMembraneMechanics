@@ -175,7 +175,7 @@ PetscErrorCode FunctionUAtBase(IGAPoint p, const PetscScalar *U, PetscScalar *R,
     bvp->xMin=std::min(bvp->xMin, x);
   }
   else{//for full tube BVP
-    if ((k.x0[1]>=0.75*bvp->CollarLocation) && (k.x0[1]<=(bvp->CollarLocation+bvp->CollarHeight))){
+    if ((k.x0[1]>=(bvp->CollarLocation-2*bvp->CollarHeight)) && (k.x0[1]<=(bvp->CollarLocation+2*bvp->CollarHeight))){
       bvp->xMin=std::min(bvp->xMin, x);
     }
   }

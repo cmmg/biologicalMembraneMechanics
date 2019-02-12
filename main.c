@@ -168,14 +168,14 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
   case 4:
 #ifdef enableForceControl
     bvp.isCollar=true;
-    bvp.CollarHeight=bvp.l*0.2; //4nm
+    bvp.CollarHeight=bvp.l*0.6; //20nm
     //
-    bvp.CollarLocation=bvp.l*0.0; //pinch at base
-    bvp.CollarPressure=c_time*16.5;  //pinch at base
-    //bvp.CollarLocation=bvp.l*2.0; //pinch at tube
-    //bvp.CollarPressure=c_time*31;  //pinch at tube
-    //bvp.CollarLocation=bvp.l*4.1; //pinch at cap
-    //bvp.CollarPressure=c_time*41;  //pinch at cap
+    bvp.CollarLocation=bvp.l*5; //pinch at base
+    bvp.CollarPressure=c_time*8;  //pinch at base
+    //bvp.CollarLocation=bvp.l*25.0; //pinch at tube
+    //bvp.CollarPressure=c_time*11;  //pinch at tube
+    //bvp.CollarLocation=bvp.l*39.5; //pinch at cap
+    //bvp.CollarPressure=c_time*16;  //pinch at cap
 #endif
     
     //Dirichlet
@@ -267,7 +267,7 @@ int main(int argc, char *argv[]) {
     //ierr = IGARead(iga,"meshes/baseCircleMeshr60h40C1.dat"); CHKERRQ(ierr);
     break;
   case 4: //pullout BVP
-    ierr = IGARead(iga,"meshes/tubeFullr40h30C1.dat"); CHKERRQ(ierr); //for base BVP
+    ierr = IGARead(iga,"meshes/tubeFullwithCapr350h800C1.dat"); CHKERRQ(ierr); //for base BVP
     //ierr = IGARead(iga,"meshes/tubeFullr40h30C1Cap.dat"); CHKERRQ(ierr); //for tube, cap BVP
     break;
   }
