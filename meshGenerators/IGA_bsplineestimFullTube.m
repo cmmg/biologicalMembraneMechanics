@@ -5,33 +5,33 @@
 clear all; 
 % spline order
 k = 3; %Order in IGa notation is one less than the notation here. So k=3 is a 2nd order curve.
-numKnots=30;
+numKnots=40;
 t = [0 0 linspace(0,1,numKnots) 1 1 ]; %k repetitions of 0 and 1 at the ends of the knot vector
 %
 R=20.0;
-r=1*R;
+r=9*R;
 %
 %populate M (2XN points on the curve... where N is some large number that is sufficient for estimating the control points)
 %tube
 %theta=linspace(4*R,r,4*numKnots); 
 
 %base line
-%theta=linspace(17*R,R+r,ceil(0.75*numKnots)); 
-%M=[theta; zeros(size(theta))];
+theta=linspace(17*R,R+r,ceil(numKnots)); 
+M=[theta; zeros(size(theta))];
 
 %base arc 
-theta=linspace(pi/2,0,ceil(0.6*numKnots)); theta=theta(2:end);
-M=[R+r-r*cos(theta);r-r*sin(theta)];
-%M=[M(1,:) R+r-r*cos(theta);M(2,:) r-r*sin(theta)];
+theta=linspace(pi/2,0,ceil(3*numKnots)); theta=theta(2:end);
+%M=[R+r-r*cos(theta);r-r*sin(theta)];
+M=[M(1,:) R+r-r*cos(theta);M(2,:) r-r*sin(theta)];
 
 %line
 %theta=linspace(r,40*R,6*numKnots); 
-theta=linspace(r,4*R,numKnots); 
+theta=linspace(r,40*R,8*numKnots); 
 M=[M(1,:) R*ones(size(theta));M(2,:) theta];
 
 %cap 
-theta=linspace(0, 0.95*pi/2,ceil(0.6*numKnots)); theta=theta(2:end);
-M=[M(1,:) R*cos(theta); M(2,:) 4*R+R*sin(theta)];
+theta=linspace(0, 0.9*pi/2,ceil(numKnots)); theta=theta(2:end);
+M=[M(1,:) R*cos(theta); M(2,:) 40*R+R*sin(theta)];
 
 %shift
 M(2,:)=M(2,:)-min(M(2,:));
