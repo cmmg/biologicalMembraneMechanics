@@ -9,8 +9,8 @@ from numpy import linspace
 
 #BSpline files
 circleFileName='circle40.mat';
-splineFileName='tubeFullwithCap40.mat'
-outputFileName='tubeFullwithCapr350h800C1.dat'
+splineFileName='baseCircleRad350Knots40Adaptive.mat'
+outputFileName='baseCircleRad350Knots40Adaptive.dat'
 C2Continuity=False;
 
 #Read from mat file

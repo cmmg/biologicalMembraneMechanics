@@ -222,11 +222,24 @@ PetscErrorCode ResidualFunction(IGAPoint p,
 	    //std::cout << rVec[0] << " " << rVec[1] << " " << rVec[2] << "\n"; 
 	  }
 	}
+	else if (bvp->type==4){ //surface traction of pullout problem
+	  Ru_i+=-((L*L)/K)*N[n]*rVec[i]*bvp->surfaceTensionAtBase; //pull in R-direction at bottom surface only
+	}
 	R[n*dof+i] = Ru_i*k.J_a; ///J_a is not the correct jacobian here as this is the surface jacobian and not the edge (line) jacobian.
       }
 #ifdef LagrangeMultiplierMethod
       R[n*dof+3] = 0.0;
 #endif
+      //
+      double lambda2=1.0; //1.0e0;
+      if (pCoords[1]<1.0e-2){
+	if (std::abs(pCoords[0])<bvp->l*1.5){
+	  R[n*dof+2]=2*lambda2*(U[n*dof+2])*k.J_a;
+	}
+	else if (std::abs(pCoords[2])<bvp->l*1.5){
+	  R[n*dof+0]=2*lambda2*(U[n*dof+0])*k.J_a;
+	} 
+      }
     }
   }
   //
