@@ -138,10 +138,10 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     break;
   case 3: //pullout BVP
     bvp.isCollar=true;
-    bvp.CollarHeight=bvp.l*.2; //6nm
+    bvp.CollarHeight=bvp.l*.1; //6nm
     //
-    bvp.CollarLocation=bvp.l*.1; //pinch at base 7
-    bvp.CollarPressure=c_time*2000;
+    bvp.CollarLocation=bvp.l*0.1; //pinch at base 7
+    bvp.CollarPressure=c_time*4000;
     
     //properties
     bvp.kGaussian=-0.7*bvp.kMean; //Gaussian curvature modulus
@@ -202,7 +202,7 @@ int main(int argc, char *argv[]) {
   bvp.l=20.0;              //20nm
   bvp.kMean=320.0*16.0;         //320pN-nm, mean curvature modulus
   bvp.kGaussian=0.0;       //Gaussian curvature modulus
-  bvp.mu=1.0*bvp.kMean;       //shear modulus for stabilization terms
+  bvp.mu=5.0*bvp.kMean;       //shear modulus for stabilization terms
   bvp.lambda=10*bvp.kMean;        //penalty parameter
   bvp.surfaceTensionAtBase=0.0;
   bvp.tractionOnTop=0.0;
