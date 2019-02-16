@@ -181,7 +181,8 @@ PetscErrorCode ResidualFunction(IGAPoint p,
 	bool isCollar=false;
 	double CollarPressure=bvp->CollarPressure;
 	if (bvp->isCollar){
-	  if ((pCoords[1]>=bvp->CollarLocation) && (pCoords[1]<=(bvp->CollarLocation+bvp->CollarHeight))) {isCollar=true; }
+	  //if ((pCoords[1]>=bvp->CollarLocation) && (pCoords[1]<=(bvp->CollarLocation+bvp->CollarHeight))) {isCollar=true; }
+	  if ((k.x0[1]>=bvp->CollarLocation) && (k.x0[1]<=(bvp->CollarLocation+bvp->CollarHeight))) {isCollar=true; }
 	}
 	if (isCollar) {
 	  if (i!=1){ //remove Y component
@@ -227,6 +228,18 @@ PetscErrorCode ResidualFunction(IGAPoint p,
 #ifdef LagrangeMultiplierMethod
       R[n*dof+3] = 0.0;
 #endif
+  //
+  //
+      
+      double lambda2=1.0; //1.0e0;
+      if (pCoords[1]<1.0e-2){
+	if (std::abs(pCoords[0])<bvp->l*0.1){
+	  R[n*dof+0]=2*lambda2*(U[n*dof+0])*k.J_a;
+	}
+	else if (std::abs(pCoords[2])<bvp->l*0.01){
+	  R[n*dof+2]=2*lambda2*(U[n*dof+2])*k.J_a;
+	} 
+      }
     }
   }
   //

@@ -36,3 +36,4 @@ L2Projection
 meshGenerators/*.dat
 U-R.txt
 meshGenerators/tempDump
+history*

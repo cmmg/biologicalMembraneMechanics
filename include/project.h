@@ -357,7 +357,7 @@ PetscErrorCode ProjectFields(Vec& U, void *ctx)
 
   //
 #ifdef enableForceControl
-  if (bvp->type!=3){  //non-pullout BVP
+  if (bvp->type!=5){  //non-pullout BVP
     PetscReal xMin=bvp->xMin;
     MPIU_Allreduce(&xMin,&xMin,1,MPIU_REAL,MPIU_MIN,PetscObjectComm((PetscObject)bvp->iga->draw_dm));
     uVal=xMin;

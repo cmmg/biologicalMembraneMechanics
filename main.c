@@ -20,7 +20,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 //parameters
 #define bvpType 3
 #define stabilizationMethod 8 //Note: Method 8 will make the solution a bit time step dependent as previous time step solution (dx0dR, aPre terms, etc) are used.
-#define numLoadSteps 1000
+#define numLoadSteps 100
 
 #undef  __FUNCT__
 #define __FUNCT__ "setBCs"
@@ -137,14 +137,20 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
 #endif
     break;
   case 3: //pullout BVP
+    bvp.isCollar=true;
+    bvp.CollarHeight=bvp.l*.2; //6nm
+    //
+    bvp.CollarLocation=bvp.l*.1; //pinch at base 7
+    bvp.CollarPressure=c_time*2000;
+    
     //properties
     bvp.kGaussian=-0.7*bvp.kMean; //Gaussian curvature modulus
     //bottom surface
     ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr);
     bvp.surfaceTensionAtBase=1.0;
     //topsurface
-    ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr);
-    bvp.tractionOnTop=c_time*300; //600;
+    //ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr);
+    //bvp.tractionOnTop=0.999*300; //c_time*300; //600;
 #ifndef  enableForceControl
     bvp.uDirichlet= (c_time)*bvp.l*0.05; //pull out height
     ierr = IGASetBoundaryValue(bvp.iga,0,1,1,bvp.uDirichlet);CHKERRQ(ierr); //Y at the top of the base
@@ -152,6 +158,7 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
 
     //Dirichlet
     ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the base
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,1,64.0);CHKERRQ(ierr); //Z=0 at the top of the base
     ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the base
     ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the base
 #ifndef  enableForceControl
@@ -294,7 +301,28 @@ int main(int argc, char *argv[]) {
     fprintf (bvp.fileForUROutout, "%12s, %12s, %12s, %12s\n", "Radius[nm]", "Reaction[pN]", "E1[pN-nm]", "E2[pN-nm]");
 #endif
   }
-  
+
+  //read file
+  PetscViewer    viewer;
+  PetscViewerBinaryOpen(PETSC_COMM_WORLD,"history999.dat",FILE_MODE_READ,&viewer);
+  VecLoad(U,viewer);
+  //VecView(U,PETSC_VIEWER_STDOUT_WORLD);
+  PetscViewerDestroy(&viewer);
+
+  /* 
+  PetscInt n=0, dummy;
+  FILE *bfile;
+  PetscScalar val;
+  VecGetSize(U,&n);
+  PetscFOpen(PETSC_COMM_SELF,"history999.mat","r",&bfile);
+  for (PetscInt i=0; i<n; i++) {
+    if (fscanf(bfile,"%d %le\n",&dummy,(double*)&val) != 2) SETERRQ(PETSC_COMM_SELF,1,"Badly formatted input file\n");
+    VecSetValues(U,1,&i,&val,INSERT_VALUES);
+  }
+  VecAssemblyBegin(U);
+  VecAssemblyEnd(U);
+  fclose(bfile);
+  */
   //load stepping
   TS ts;
   PetscInt timeSteps=numLoadSteps;

@@ -30,6 +30,17 @@ PetscErrorCode OutputMonitor(TS ts,PetscInt it_number,PetscReal c_time,Vec U,voi
 
   //project and output fields and reaction forces
   ProjectFields(U, ctx);
+
+  //
+  //PetscViewer    viewer;
+  std::string filehistory("history");
+  std::ostringstream temp;
+  temp << it_number;
+  filehistory.append(temp.str());
+  filehistory.append(".dat");
+  //PetscViewerBinaryOpen(PETSC_COMM_WORLD,filehistory.c_str(),FILE_MODE_WRITE,&viewer);
+  //VecView(U,viewer);
+  //PetscViewerDestroy(&viewer);
   
   //setup BCs for next load increment 
   setBCs(*bvp, it_number, c_time);
