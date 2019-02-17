@@ -171,8 +171,10 @@ PetscErrorCode FunctionUAtBase(IGAPoint p, const PetscScalar *U, PetscScalar *R,
 
   //get Xmin (the coordinate at the maximum value of pinching)
   double x=std::sqrt(k.x0[0]*k.x0[0]+k.x0[2]*k.x0[2]); //radial distance from the central cylindrical axis
-  bvp->xMin=std::min(bvp->xMin, x);
-  
+  if (((k.x0[1]>=(bvp->CollarLocation-2*bvp->CollarHeight)) && (k.x0[1]<=(bvp->CollarLocation+2*bvp->CollarHeight)))){
+    bvp->xMin=std::min(bvp->xMin, x);
+  }
+    
   //
 #ifdef LagrangeMultiplierMethod
   double (*u)[3+1] = (double (*)[3+1])U;

@@ -140,8 +140,8 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     bvp.isCollar=true;
     bvp.CollarHeight=bvp.l*.1; //6nm
     //
-    bvp.CollarLocation=bvp.l*0.1; //pinch at base 7
-    bvp.CollarPressure=c_time*4000;
+    bvp.CollarLocation=bvp.l*0.1; //pinch at base 
+    bvp.CollarPressure=c_time*3000; //pinch at base 
     
     //properties
     bvp.kGaussian=-0.7*bvp.kMean; //Gaussian curvature modulus
