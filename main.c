@@ -177,7 +177,7 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     //bvp.CollarLocation=bvp.l*0.0; //pinch at base
     //bvp.CollarPressure=c_time*17;  //pinch at base
     bvp.CollarLocation=bvp.l*2.0; //pinch at tube
-    bvp.CollarPressure=c_time*31;  //pinch at tube
+    bvp.CollarPressure=c_time*2;  //pinch at tube
     //bvp.CollarLocation=bvp.l*4.1; //pinch at cap
     //bvp.CollarPressure=c_time*41;  //pinch at cap
 #endif
@@ -220,7 +220,7 @@ int main(int argc, char *argv[]) {
   bvp.energyFactor=1.0;
   //material constants (in actual units)
   bvp.l=20.0;              //20nm
-  bvp.kMean=320.0*16.0;         //320pN-nm, mean curvature modulus
+  bvp.kMean=320.0;         //320pN-nm, mean curvature modulus
   bvp.kGaussian=0.0;       //Gaussian curvature modulus
   bvp.mu=1*bvp.kMean;       //shear modulus for stabilization terms
   bvp.lambda=10*bvp.kMean;        //penalty parameter
