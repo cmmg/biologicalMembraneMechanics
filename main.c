@@ -174,22 +174,22 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     //bvp.CollarLocation=bvp.l*38; //pinch at cap
     //bvp.CollarPressure=c_time*24;  //pinch at cap
     //
-    bvp.CollarLocation=bvp.l*0.0; //pinch at base
-    bvp.CollarPressure=c_time*0.45;  //pinch at base
+    //bvp.CollarLocation=bvp.l*0.0; //pinch at base
+    //bvp.CollarPressure=c_time*0.45;  //pinch at base
     //bvp.CollarLocation=bvp.l*2.0; //pinch at tube
     //bvp.CollarPressure=c_time*2;  //pinch at tube
-    //bvp.CollarLocation=bvp.l*4.1; //pinch at cap
-    //bvp.CollarPressure=c_time*41;  //pinch at cap
+    bvp.CollarLocation=bvp.l*4.0; //pinch at cap
+    bvp.CollarPressure=c_time*2.5;  //pinch at cap
 #endif
-    
+     
     //Dirichlet
     ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the tube
     ierr = IGASetBoundaryValue(bvp.iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the tube
     ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the tube
     ierr = IGASetBoundaryValue(bvp.iga,0,0,1,/*dummy*/0.0);CHKERRQ(ierr);
-    //comment for tube and cap BVP
-    //ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); 
-    //ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr);
+    //remove comment for tube and cap BVP
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); 
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr);
     
     break;
   }
