@@ -1,465 +1,348 @@
 /*
   Kirchhoff-Love shell implementation in PetIGA
-  author: rudraa
+  author: Shiva Rudraraju
  */
-#include <math.h> 
-//extern "C" {
-#include "petiga.h"
-//}
 
-//include automatic differentiation library
+#include "petiga.h"
+#include <math.h> 
 #include <Sacado.hpp>
 typedef Sacado::Fad::DFad<double> doubleAD;
 
-typedef struct {
-  IGA iga;
-  PetscReal l;
-  PetscReal kMean, kGaussian, delta, mu, epsilon;
-  PetscReal surfaceTension;
-} AppCtx;
+#define LagrangeMultiplierMethod
+#define enableFastResidualComputation
+#define enableForceControl //default is displacement control for some BVPs
+
+#include "include/residual.h"
+#include "include/project.h"
+#include "include/output.h"
+#include "include/solvers.h"
+
+//parameters
+#define bvpType 4
+#define stabilizationMethod 8 //Note: Method 8 will make the solution a bit time step dependent as previous time step solution (dx0dR, aPre terms, etc) are used.
+#define numLoadSteps 100
 
 #undef  __FUNCT__
-#define __FUNCT__ "Function"
-template <class T>
-PetscErrorCode Function(IGAPoint p,
-			PetscReal shift,const PetscScalar *V,
-			PetscReal t,const T * tempU,
-			PetscReal t0,const PetscScalar * tempU0,
-			T *R,void *ctx)
+#define __FUNCT__ "setBCs"
+PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
 {
-  AppCtx *user = (AppCtx *)ctx;
-  PetscReal L=user->l; //Length scale for normalization
-  PetscReal K=user->kMean; //bending modulus
-  PetscReal KGaussian=user->kGaussian; //bending modulus
-  PetscReal Lambda=user->delta; //penalty parameter for incompressibility
-  PetscReal Mu=user->mu; //stabilzation parameter
-  PetscReal Epsilon=user->epsilon;
-  PetscReal SurfaceTension=user->surfaceTension;
-  
-  //normalization
-  PetscReal kBar=K/K, kGaussianBar=KGaussian/K, lambdaBar=Lambda*(L*L)/K;
-  PetscReal muBar=Mu*(L*L)/K, epsilonBar=Epsilon*(L/K); 
-  
-  //instantaneous curvature
-  double H0=0.0; 
-
-  //get number of shape functions (nen) and dof's
-  PetscInt nen, dof;
-  IGAPointGetSizes(p,0,&nen,&dof);
-
-  //shape functions: value, grad, hess
-  const PetscReal (*N) = (const PetscReal (*)) p->shape[0];
-  const PetscReal (*N1)[2] = (const PetscReal (*)[2]) p->basis[1];
-  const PetscReal (*N2)[2][2] = (const PetscReal (*)[2][2]) p->basis[2];
-  
-  //get X
-  const PetscReal (*X)[3] = (const PetscReal (*)[3]) p->geometry;
-
-  //get x
-  T x[nen][3];
-  T (*u)[3] = (T (*)[3])tempU;
-  for(unsigned int n=0; n<(unsigned int) nen; n++){
-    for(unsigned int d=0; d<3; d++){
-      x[n][d]= X[n][d]+ u[n][d];
-      //normalization
-      //X[n][d]*=1.0/L;
-      //x[n][d]*=1.0/L;
-    }
-  }
-
-  //compute basis vectors, dxdR and dXdR, gradient of basis vectors, dxdr2, and co-variant metric tensors, a and A. 
-  T dxdR[3][2], dxdR2[3][2][2], a[2][2];
-  double A[2][2], dXdR[3][2];
-  for(unsigned int d=0; d<3; d++){
-    dXdR[d][0]=dXdR[d][1]=0.0;
-    dxdR[d][0]=dxdR[d][1]=0.0;
-    dxdR2[d][0][0]=dxdR2[d][0][1]=0.0;
-    dxdR2[d][1][0]=dxdR2[d][1][1]=0.0;
-    for(unsigned int n=0; n<(unsigned int) nen; n++){
-      dXdR[d][0]+=N1[n][0]*X[n][d];
-      dXdR[d][1]+=N1[n][1]*X[n][d];	 
-      dxdR[d][0]+=N1[n][0]*x[n][d];
-      dxdR[d][1]+=N1[n][1]*x[n][d];
-      dxdR2[d][0][0]+=N2[n][0][0]*x[n][d];
-      dxdR2[d][0][1]+=N2[n][0][1]*x[n][d];
-      dxdR2[d][1][0]+=N2[n][1][0]*x[n][d];	    
-      dxdR2[d][1][1]+=N2[n][1][1]*x[n][d];
-    }
-  }
-  //
-  for(unsigned int i=0; i<2; i++){
-    for(unsigned int j=0; j<2; j++){
-      A[i][j]=0.0;
-      a[i][j]=0.0;
-      for(unsigned int d=0; d<3; d++){
-	A[i][j]+=dXdR[d][i]*dXdR[d][j];
-	a[i][j]+=dxdR[d][i]*dxdR[d][j];
-      }
-    }
-  }
-
-  //compute Jacobians
-  T J, J_a; double J_A;
-  J_A=std::sqrt(A[0][0]*A[1][1]-A[0][1]*A[1][0]);
-  J_a=std::sqrt(a[0][0]*a[1][1]-a[0][1]*a[1][0]);
-  J=J_a/J_A;
-  if (J_A<0.0) {std::cout << "negative jacobian\n";  exit(-1);}
-  //std::cout << J.val() << ", ";
-
-  //compute normal
-  T normal[3];
-  normal[0]=(dxdR[1][0]*dxdR[2][1]-dxdR[2][0]*dxdR[1][1])/J_a;
-  normal[1]=(dxdR[2][0]*dxdR[0][1]-dxdR[0][0]*dxdR[2][1])/J_a;
-  normal[2]=(dxdR[0][0]*dxdR[1][1]-dxdR[1][0]*dxdR[0][1])/J_a;
-  //std::cout << normal[0].val() << ", " << normal[1].val() << ", " << normal[2].val() << "\n";
-  
-  //compute curvature tensor, b
-  T b[2][2];
-  for(unsigned int i=0; i<2; i++){
-    for(unsigned int j=0; j<2; j++){
-      b[i][j]=0.0;
-      for(unsigned int d=0; d<3; d++){
-	b[i][j]+=normal[d]*dxdR2[d][i][j];
-      }
-    }
-  }
-
-  //compute determinants of metric tensors and curvature tensor
-  T det_a=a[0][0]*a[1][1]-a[0][1]*a[1][0];
-  T det_b=b[0][0]*b[1][1]-b[0][1]*b[1][0];
-  double det_A=A[0][0]*A[1][1]-A[0][1]*A[1][0];
-  
-  //compute contra-variant metric tensors, a_contra, A_contra.
-  //needed for computing the contra-variant tanget vectors dxdR_contra, which are needed for computing the Christoffel symbols
-  T a_contra[2][2], dxdR_contra[3][2];
-  double A_contra[2][2];
-  a_contra[0][0]=a[1][1]/det_a; a_contra[1][1]=a[0][0]/det_a;
-  a_contra[0][1]=-a[0][1]/det_a; a_contra[1][0]=-a[1][0]/det_a;
-  A_contra[0][0]=A[1][1]/det_A; A_contra[1][1]=A[0][0]/det_A;
-  A_contra[0][1]=-A[0][1]/det_A; A_contra[1][0]=-A[1][0]/det_A;
-  for(unsigned int d=0; d<3; d++){
-    dxdR_contra[d][0]=a_contra[0][0]*dxdR[d][0]+a_contra[0][1]*dxdR[d][1];
-    dxdR_contra[d][1]=a_contra[1][0]*dxdR[d][0]+a_contra[1][1]*dxdR[d][1];
-  }
-
-  //compute invariants of Green-Lagrange strain, C
-  T I1=0.0;
-  for(unsigned int i=0; i<2; i++){
-    for(unsigned int j=0; j<2; j++){
-      I1+=A_contra[i][j]*a[i][j];
-    }
-  }
-  
-  //compute contra-variant curvature tensor, b_contra.
-  T b_contra[2][2];
-  for(unsigned int i=0; i<2; i++){
-    for(unsigned int j=0; j<2; j++){
-      b_contra[i][j]=0.0;
-      for(unsigned int k=0; k<2; k++){
-	for(unsigned int l=0; l<2; l++){
-	  b_contra[i][j]+=a_contra[i][k]*b[k][l]*a_contra[l][j]; //*
-	}
-      }
-    }
-  }
-  
-  //compute Christoffel symbols
-  T Gamma[2][2][2];
-  for(unsigned int i=0; i<2; i++){
-    for(unsigned int j=0; j<2; j++){
-      for(unsigned int k=0; k<2; k++){
-	Gamma[i][j][k]=0.0;
-	for(unsigned int d=0; d<3; d++){
-	  Gamma[i][j][k]+=dxdR_contra[d][i]*dxdR2[d][j][k];
-	}
-      }
-    }
-  }
-
-  //compute mean curvature, H
-  T H=0;
-  for (unsigned int i=0; i<2; i++){
-    for (unsigned int j=0; j<2; j++){
-      H+=0.5*a[i][j]*b_contra[i][j];
-    }
-  }
-  T dH=H-H0;
-  //std::cout << dH.val() << ", ";
-  
-  //compute Gaussian curvature, Kappa
-  T Kappa=det_b/det_a;
-    
-  //compute contra-variant stress and bending moment tensors
-  T sigma_contra[2][2], M_contra[2][2];
-  //For Helfrich energy formulation
-  for (unsigned int i=0; i<2; i++){
-    for (unsigned int j=0; j<2; j++){
-      sigma_contra[i][j]=(L*L/K)*((Lambda*(J-1.0)+K*dH*dH - KGaussian*Kappa)*a_contra[i][j]-2*K*dH*b_contra[i][j]);
-      sigma_contra[i][j]+=(L*L/K)*(Mu/(J*J))*(A_contra[i][j]-0.5*I1*a_contra[i][j]); //stabilization term
-      M_contra[i][j]=(L/K)*(K*dH + 2*KGaussian*H)*a_contra[i][j]-KGaussian*b_contra[i][j];
-    }
-  }
-  //std::cout << sigma[0][0].val() << ", " << sigma[0][1].val() << ", " << sigma[1][0].val() << ", " << sigma[1][1].val() << "  :  ";
-  //std::cout << M[0][0].val() << ", " << M[0][1].val() << ", " << M[1][0].val() << ", " << M[1][1].val() << "\n";
-  
-  bool surfaceFlag=p->atboundary;
-  PetscReal *boundaryNormal = p->normal;
-  //Residual
-  if (!surfaceFlag) {
-    for (unsigned int n=0; n<(unsigned int)nen; n++) {
-      for (unsigned int i=0; i<3; i++){
-	T Ru_i=0.0;
-	for (unsigned int j=0; j<2; j++){
-	  for (unsigned int k=0; k<2; k++){
-	    //sigma*grad(Na)*dxdR*J
-	    Ru_i += sigma_contra[j][k]*N1[n][j]*dxdR[i][k]*J;
-	    //M*(hess(Na)-Gamma*grad(Na))*n*J
-	    Ru_i += M_contra[j][k]*(N2[n][j][k])*normal[i]*J;
-	    for (unsigned int l=0; l<2; l++){
-	      Ru_i += -M_contra[j][k]*(Gamma[l][j][k]*N1[n][l])*normal[i]*J;
-	    }
-	  }
-	}
-	R[n*3+i] = Ru_i;
-      }
-    }
-  }
-  else{
-    //
-    PetscReal pCoords[3];
-    IGAPointFormGeomMap(p,pCoords);
-    PetscReal normPoint=std::sqrt(std::pow(pCoords[0],2)+std::pow(pCoords[1],2));
-    PetscReal nValue[3]={pCoords[0]/normPoint, pCoords[1]/normPoint, 0.0};
-    PetscReal nValueZ[3]={0.0, 0.0, 1.0};
-    //
-    for (unsigned int n=0; n<(unsigned int)nen; n++) {
-      for (unsigned int i=0; i<3; i++){
-	T Ru_i=t*((L*L)/K)*N[n]*SurfaceTension*nValue[i];
-	for (unsigned int j=0; j<2; j++){
-	  for (unsigned int d=0; d<3; d++){
-	    Ru_i+=epsilonBar*(N1[n][j]*normal[i]*nValueZ[d]*dxdR_contra[d][j]);
-	  }
-	}
-	R[n*3+i] = Ru_i;
-      }
-    }
-  }
-  return 0; 
-}
-
-
-#undef  __FUNCT__
-#define __FUNCT__ "Residual"
-PetscErrorCode Residual(IGAPoint p,
-                        PetscReal shift,const PetscScalar *V,
-                        PetscReal t,const PetscScalar *U,
-                        PetscReal t0,const PetscScalar *U0, 
-			PetscScalar *R,void *ctx)
-{
-  Function<PetscReal>(p, shift, V, t, U, t0, U0, R, ctx);
-  /*
-  const PetscInt nen=p->nen, dof=3;
-  std::vector<doubleAD> U_AD(nen*dof);
-  for(int i=0; i<nen*dof; i++){
-    U_AD[i]=U[i];
-    U_AD[i].diff(i, dof*nen);
-  }
-  std::vector<doubleAD> tempR(nen*dof);
-  Function<doubleAD> (p, shift, V, t, &U_AD[0], t0, U0, &tempR[0], ctx);
-  for(int n1=0; n1<nen; n1++){
-    for(int d1=0; d1<dof; d1++){
-      R[n1*dof+d1]= tempR[n1*dof+d1].val();
-    }
-  }
-  */
-  return 0;
-}
-
-#undef  __FUNCT__
-#define __FUNCT__ "Jacobian"
-PetscErrorCode Jacobian(IGAPoint p,
-			PetscReal shift,const PetscScalar *V,
-			PetscReal t,const PetscScalar *U,
-			PetscReal t0,const PetscScalar *U0,
-			PetscScalar *K,void *ctx)
-{
-  //std::cout << "J";
-  AppCtx *user = (AppCtx *)ctx;
-  const PetscInt nen=p->nen, dof=3;
-  //const PetscReal (*U2)[DIM] = (PetscReal (*)[DIM])U;
-  /*
-  if (dof*nen!=numVars) {
-    PetscPrintf(PETSC_COMM_WORLD,"\ndof*nen!=numVars.... Set numVars = %u\n",dof*nen); exit(-1);
-  }
-  */
-  bool surfaceFlag=p->atboundary;
-  if (!surfaceFlag){
-    std::vector<doubleAD> U_AD(nen*dof);
-    for(int i=0; i<nen*dof; i++){
-      U_AD[i]=U[i];
-      U_AD[i].diff(i, dof*nen);
-    } 
-    std::vector<doubleAD> R(nen*dof);
-    Function<doubleAD> (p, shift, V, t, &U_AD[0], t0, U0, &R[0], ctx);
-    for(int n1=0; n1<nen; n1++){
-      for(int d1=0; d1<dof; d1++){
-	for(int n2=0; n2<nen; n2++){
-	  for(int d2=0; d2<dof; d2++){
-	    K[n1*dof*nen*dof + d1*nen*dof + n2*dof + d2] = R[n1*dof+d1].fastAccessDx(n2*dof+d2);
-	  }
-	}
-      }				
-    }
-  }
-  else{
-    for(int n1=0; n1<nen; n1++){
-      for(int d1=0; d1<dof; d1++){
-	for(int n2=0; n2<nen; n2++){
-	  for(int d2=0; d2<dof; d2++){
-	    K[n1*dof*nen*dof + d1*nen*dof + n2*dof + d2] = 0.0;
-	  }
-	}
-      }
-    }
-  }
-  return 0;    
-}
-
-
-//snes convegence test
-PetscErrorCode SNESConverged_Interactive(SNES snes, PetscInt it,PetscReal xnorm, PetscReal snorm, PetscReal fnorm, SNESConvergedReason *reason, void *ctx){
-  AppCtx *user  = (AppCtx*) ctx;
-  PetscPrintf(PETSC_COMM_WORLD,"xnorm:%12.6e snorm:%12.6e fnorm:%12.6e\n",xnorm,snorm,fnorm);  
-  //custom test
-  if ((it>199) || (fnorm<1.0e-10)){
-    *reason = SNES_CONVERGED_ITS;
-    return(0);
-  }
-
-  //default test
-  PetscFunctionReturn(SNESConvergedDefault(snes,it,xnorm,snorm,fnorm,reason,ctx));
-}
-
-#undef __FUNCT__
-#define __FUNCT__ "OutputMonitor"
-PetscErrorCode OutputMonitor(TS ts,PetscInt it_number,PetscReal c_time,Vec U,void *mctx)
-{
-  PetscFunctionBegin;
+  PetscFunctionBegin; 
   PetscErrorCode ierr;
-  AppCtx *user = (AppCtx *)mctx;
-  char           filename[256];
-  sprintf(filename,"./outU%d.vts",it_number);
-  ierr = IGADrawVecVTK(user->iga,U,filename);CHKERRQ(ierr);
-  //std::cout << c_time << "\n";
+
+  ierr = IGASetFixTable(bvp.iga,NULL);CHKERRQ(ierr); /* Clear vector to read BCs from */
+
+  //clear old BC's
+  IGAForm form;
+  ierr = IGAGetForm(bvp.iga,&form);CHKERRQ(ierr);
+  for (PetscInt dir=0; dir<2; dir++){
+    for (PetscInt side=0; side<2; side++){
+      ierr =   IGAFormClearBoundary(form,dir,side);
+    }
+  }
+  
+  //Boundary form for Neumann BC's
+  ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_FALSE);CHKERRQ(ierr);
+  ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_FALSE);CHKERRQ(ierr);
+  ierr = IGAFormSetBoundaryForm (form,1,0,PETSC_FALSE);CHKERRQ(ierr);
+  ierr = IGAFormSetBoundaryForm (form,1,1,PETSC_FALSE);CHKERRQ(ierr);
+  bvp.angleConstraints[0]= bvp.angleConstraints[1]=false;
+  
+  //Dirichlet and Neumann BC's
+  switch (bvp.type) {
+  case 0: //cap BVP
+    bvp.uDirichlet=0.8*c_time*bvp.l*1.0; //X=Z=uDirichlet at the bottom of the cap (displacement control)
+    ProjectL2(&bvp);
+  
+    //Dirichlet
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the cap
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the cap
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the cap
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); //init for X=uDirichlet at the bottom of the cap
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr); //init for Z=uDirichlet at the bottom of the cap
+   
+    //Neumann
+    ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the bottom of the cap
+    ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_FALSE);CHKERRQ(ierr); //phi=0  at the top of the cap
+    bvp.angleConstraints[0]=true; bvp.angleConstraintValues[0]=90;
+    bvp.angleConstraints[1]=false; bvp.angleConstraintValues[1]=0;
+    bvp.epsilon=bvp.kMean;
+    
+    //Non-homogeneous Dirichlet BC values
+    ierr = IGASetFixTable(bvp.iga,bvp.xDirichlet);CHKERRQ(ierr);    /* Set vector to read BCs from */
+    break;
+    
+  case 1: //tube BVP
+#ifdef enableForceControl
+    bvp.isCollar=true;
+    bvp.CollarLocation=bvp.l*0.0; //At the bottom
+    bvp.CollarHeight=bvp.l*0.025; //0.5nm (20*0.025)
+    bvp.CollarPressure=c_time*55;
+#else
+    bvp.uDirichlet=0.9*c_time*bvp.l*1.0; //X=Z=uDirichlet at the bottom of the tube (displacement control)
+    ProjectL2(&bvp);
+#endif
+    
+    //Dirichlet
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the tube
+    //ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the tube
+#ifndef  enableForceControl
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); //init for X=uDirichlet at the bottom of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr); //init for Z=uDirichlet at the bottom of the tube
+#endif
+    //Neumann. Comment out for Asymmetric mode.
+    ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the bottom of the tube
+    ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the top of the tube
+    bvp.angleConstraints[0]=true; bvp.angleConstraintValues[0]=90;
+    bvp.angleConstraints[1]=true; bvp.angleConstraintValues[1]=90;
+    bvp.epsilon=bvp.kMean;
+    
+#ifndef  enableForceControl
+    //Non-homogeneous Dirichlet BC values
+    ierr = IGASetFixTable(bvp.iga,bvp.xDirichlet);CHKERRQ(ierr);    /* Set vector to read BCs from */
+#endif
+    break;
+    
+  case 2: //base BVP
+#ifdef enableForceControl
+    bvp.isCollar=true;
+    bvp.CollarLocation=bvp.l*0.45;
+    bvp.CollarHeight=bvp.l*0.1; //2.0nm 
+    bvp.CollarPressure=c_time*3.7;
+#else
+    bvp.uDirichlet=c_time*bvp.l*1.0; //X=Z=uDirichlet at the bottom of the base (displacement control)
+    ProjectL2(&bvp);
+#endif
+    
+    //Dirichlet
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the base
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the base
+    //ierr = IGASetBoundaryValue(bvp.iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the base
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the base
+#ifndef  enableForceControl
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); //init for X=uDirichlet at the bottom of the base
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr); //init for Z=uDirichlet at the bottom of the base
+#endif
+
+    //Neumann
+    bvp.angleConstraints[0]=false; 
+    bvp.angleConstraints[1]=false; 
+    bvp.epsilon=bvp.kMean*0.0;
+
+#ifndef  enableForceControl
+    //Non-homogeneous Dirichlet BC values
+    ierr = IGASetFixTable(bvp.iga,bvp.xDirichlet);CHKERRQ(ierr);    /* Set vector to read BCs from */
+#endif
+    break;
+  case 3: //pullout BVP
+    //properties
+    bvp.kGaussian=-0.7*bvp.kMean; //Gaussian curvature modulus
+    //bottom surface
+    ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr);
+    bvp.surfaceTensionAtBase=1.0;
+    //topsurface
+    ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr);
+    bvp.tractionOnTop=c_time*300; //600;
+#ifndef  enableForceControl
+    bvp.uDirichlet= (c_time)*bvp.l*0.05; //pull out height
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,1,bvp.uDirichlet);CHKERRQ(ierr); //Y at the top of the base
+#endif
+
+    //Dirichlet
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the base
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the base
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the base
+#ifndef  enableForceControl
+    //ierr = IGASetBoundaryValue(bvp.iga,0,0,0,0.0);CHKERRQ(ierr); 
+    //ierr = IGASetBoundaryValue(bvp.iga,0,0,2,0.0);CHKERRQ(ierr); 
+#endif
+
+    //Neumann. Comment out for Asymmetric mode.
+    ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=0 at the bottom of the tube
+    bvp.angleConstraints[0]=true; bvp.angleConstraintValues[0]=0;
+    bvp.epsilon=10*bvp.kMean;
+
+    break;
+  case 4:
+#ifdef enableForceControl
+    bvp.isCollar=true;
+    bvp.CollarHeight=bvp.l*0.2; //4nm
+    //bvp.CollarLocation=bvp.l*26.0; //pinch at tube
+    //bvp.CollarPressure=c_time*18;  //pinch at tube
+    //bvp.CollarLocation=bvp.l*38; //pinch at cap
+    //bvp.CollarPressure=c_time*24;  //pinch at cap
+    //
+    //bvp.CollarLocation=bvp.l*0.0; //pinch at base
+    //bvp.CollarPressure=c_time*0.45;  //pinch at base
+    //bvp.CollarLocation=bvp.l*2.0; //pinch at tube
+    //bvp.CollarPressure=c_time*2;  //pinch at tube
+    bvp.CollarLocation=bvp.l*4.0; //pinch at cap
+    bvp.CollarPressure=c_time*2.5;  //pinch at cap
+#endif
+     
+    //Dirichlet
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,1,/*dummy*/0.0);CHKERRQ(ierr);
+    //remove comment for tube and cap BVP
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); 
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr);
+    
+    break;
+  }
   //
-  
-  ierr = IGASetBoundaryValue(user->iga,0,0,2,user->l*(c_time));CHKERRQ(ierr); //Y=lambda on \eta_2=0
-  ierr = IGASetBoundaryValue(user->iga,0,0,0,0.0);CHKERRQ(ierr); //X=0 on \eta_1=0
-  ierr = IGASetBoundaryValue(user->iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 on \eta_1=0
-  
   PetscFunctionReturn(0);
 }
 
+//main
 int main(int argc, char *argv[]) {
-
-  char           filename[PETSC_MAX_PATH_LEN] = "mesh.dat";
   PetscErrorCode ierr;
   ierr = PetscInitialize(&argc,&argv,0,0);CHKERRQ(ierr);
-
-  AppCtx user;
-  user.l=1.0;
-  user.kMean=1.0;
-  user.kGaussian=-0.7*user.kMean;
-  user.delta=20000.0;
-  user.mu=0.1;
-  user.epsilon=10*user.kMean/user.l;
-  user.surfaceTension=100*user.kMean/(user.l*user.l);
+  //
+  PetscMPIInt rank,size;
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
   
+  //IGA and BVP setup
   IGA iga;
   ierr = IGACreate(PETSC_COMM_WORLD,&iga);CHKERRQ(ierr);
+  
+  //setup BVP and material model parameters
+  BVPStruct bvp;
+  //non-dimentionalzation factors used for the pinching problems
+  bvp.lengthFactor=1.0;
+  bvp.kFactor=1.0; 
+  bvp.forceFactor=1.0; 
+  bvp.energyFactor=1.0;
+  //material constants (in actual units)
+  bvp.l=20.0;              //20nm
+  bvp.kMean=320.0;         //320pN-nm, mean curvature modulus
+  bvp.kGaussian=0.0;       //Gaussian curvature modulus
+  bvp.mu=1*bvp.kMean;       //shear modulus for stabilization terms
+  bvp.lambda=10*bvp.kMean;        //penalty parameter
+  bvp.surfaceTensionAtBase=0.0;
+  bvp.tractionOnTop=0.0;
+  bvp.epsilon=0.0;       //penalty parameter for rotational constraints
+  bvp.type=bvpType;
+  bvp.xMin=bvp.l;
+  if (bvp.type==4){
+    bvp.xMin=2*bvp.l;
+  }
+  //
+  bvp.stabilization=stabilizationMethod;
+  bvp.c_time=0.0;
+  bvp.isCollar=false;
+  bvp.isCollarHelix=false;
+  bvp.CollarLocation=0.0;
+  bvp.CollarHeight=0.0;
+  bvp.CollarHelixPitch=0.0;
+  bvp.CollarRadius=0.0;
+  bvp.CollarPressure=0.0;
+  
+  //processor zero for printing output in MPI jobs
+  if(rank == 0){bvp.isProc0=true;}
+  else {bvp.isProc0=false;}
+  
+#ifdef LagrangeMultiplierMethod
+  ierr = IGASetDof(iga,4);CHKERRQ(ierr); // dofs = {ux,uy,uz,q}
+#else
   ierr = IGASetDof(iga,3);CHKERRQ(ierr); // dofs = {ux,uy,uz}
+#endif
   ierr = IGASetDim(iga,2);CHKERRQ(ierr);
   ierr = IGASetGeometryDim(iga,3);CHKERRQ(ierr);
-  IGAAxis axisY;
-  ierr = IGAGetAxis(iga,1,&axisY);CHKERRQ(ierr);
-  ierr = IGAAxisSetDegree(axisY,2);CHKERRQ(ierr);
-  ierr = IGAAxisSetPeriodic(axisY,PETSC_TRUE);CHKERRQ(ierr); //periodicity
-  //
-  ierr = IGARead(iga,filename);CHKERRQ(ierr);
+  ierr = IGAAxisSetPeriodic(iga->axis[1],PETSC_TRUE);CHKERRQ(ierr);
+  switch (bvp.type) {
+  case 0: //cap BVP
+    ierr = IGARead(iga,"meshes/capMeshr80h40C1.dat"); CHKERRQ(ierr);
+    break;
+  case 1: //tube BVP
+    //ierr = IGARead(iga,"meshes/tubeMeshr160h80C1.dat"); CHKERRQ(ierr);
+    ierr = IGARead(iga,"meshes/tubeMeshr80h80C1H2R.dat"); CHKERRQ(ierr);
+    break;
+  case 2: //base BVP
+    ierr = IGARead(iga,"meshes/base90DegMeshr80h40C1H2R.dat"); CHKERRQ(ierr);
+    break;
+  case 3: //pullout BVP
+    ierr = IGARead(iga,"meshes/baseCircleMeshr40h80C1.dat"); CHKERRQ(ierr);
+    //ierr = IGARead(iga,"meshes/baseCircleMeshr60h40C1.dat"); CHKERRQ(ierr);
+    break;
+  case 4: //pullout BVP
+    //ierr = IGARead(iga,"meshes/tubeFullr40h30C1.dat"); CHKERRQ(ierr); //for base BVP
+    ierr = IGARead(iga,"meshes/tubeFullr40h30C1Cap.dat"); CHKERRQ(ierr); //for tube, cap BVP
+    break;
+  }
+
   ierr = IGASetFromOptions(iga);CHKERRQ(ierr);
   ierr = IGASetUp(iga);CHKERRQ(ierr);
-  user.iga = iga;
+  bvp.iga = iga;
   
   //Print knots to output
   IGAAxis axisX;  
-  ierr = IGAGetAxis(iga,0,&axisX);CHKERRQ(ierr);
+  ierr = IGAGetAxis(bvp.iga,0,&axisX);CHKERRQ(ierr);
   PetscInt mX; PetscReal* UX;
   IGAAxisGetKnots(axisX, &mX, &UX);
-  std::cout << mX << " knotsX: ";
-  for (unsigned int i=0; i<(mX+1); i++){
-    std::cout << UX[i] << ", ";
-  }
-  std::cout << std::endl;
-  //IGAAxis axisY;  
-  ierr = IGAGetAxis(iga,1,&axisY);CHKERRQ(ierr);
+  IGAAxis axisY;  
+  ierr = IGAGetAxis(bvp.iga,1,&axisY);CHKERRQ(ierr);
   PetscInt mY; PetscReal* UY;
   IGAAxisGetKnots(axisY, &mY, &UY);
-  std::cout << mY << " knotsY: ";
-  for (unsigned int i=0; i<(mY+1); i++){
-    std::cout << UY[i] << ", ";
+  if(bvp.isProc0){
+    std::cout << mX << " knotsX: ";
+    for (unsigned int i=0; i<(mX+1); i++){
+      std::cout << UX[i] << ", ";
+    }
+    std::cout << std::endl;
+    std::cout << mY << " knotsY: ";
+    for (unsigned int i=0; i<(mY+1); i++){
+      std::cout << UY[i] << ", ";
+    }
+    std::cout << std::endl;
   }
-  std::cout << std::endl;
   
-  //Dirichlet BC's u = 0, v = [0:1]
-  //ierr = IGASetBoundaryValue(iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 on \eta_1=1
-  //ierr = IGASetBoundaryValue(iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 on \eta_1=1
-  ierr = IGASetBoundaryValue(iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 on \eta_1=1
-  //ierr = IGASetBoundaryValue(iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 on \eta_1=1
-  //ierr = IGASetBoundaryValue(iga,1,1,1,0.0);CHKERRQ(ierr); //Y=0 on \eta_2=1
-  
-  //Boundary form for Neumann BC's
-  IGAForm form;
-  ierr = IGAGetForm(iga,&form);CHKERRQ(ierr);
-  ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_FALSE);CHKERRQ(ierr);
-  ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr);
-  ierr = IGAFormSetBoundaryForm (form,1,0,PETSC_FALSE);CHKERRQ(ierr);
-  ierr = IGAFormSetBoundaryForm (form,1,1,PETSC_FALSE);CHKERRQ(ierr);
-  
-  // // //
-  Vec U,U0;
-  ierr = IGACreateVec(iga,&U);CHKERRQ(ierr);
-  ierr = IGACreateVec(iga,&U0);CHKERRQ(ierr);
-  //ierr = FormInitialCondition(iga, U0, &user); //set initial conditions
-  ierr = VecSet(U0,0.0);CHKERRQ(ierr);
-  ierr = VecCopy(U0, U);CHKERRQ(ierr);
-  //
-  ierr = IGASetFormIEFunction(iga,Residual,&user);CHKERRQ(ierr);
-  ierr = IGASetFormIEJacobian(iga,Jacobian,&user);CHKERRQ(ierr);
-  //
+  //solutions vectors
+  Vec U;
+  ierr = IGACreateVec(bvp.iga,&U);CHKERRQ(ierr);
+  ierr = VecSet(U,0.0);CHKERRQ(ierr);
   ierr = IGADrawVecVTK(iga,U,"mesh.vts");CHKERRQ(ierr);
+  ierr = IGACreateVec(bvp.iga,&bvp.xDirichlet);CHKERRQ(ierr);
   //
+  ierr = IGASetFormIEFunction(bvp.iga,Residual,&bvp);CHKERRQ(ierr);
+  ierr = IGASetFormIEJacobian(bvp.iga,Jacobian,&bvp);CHKERRQ(ierr);
+  //
+  setBCs(bvp, 0, 0.0);
+  
+  //open file for U,R output
+  if (bvp.isProc0){
+#ifdef enableForceControl
+    bvp.fileForUROutout=fopen ("URbyForceControl.txt","w");
+    if (bvp.type!=3){ 
+      fprintf (bvp.fileForUROutout, "%12s, %12s, %12s, %12s\n", "Radius[nm]", "Pressure[pN/nm]", "E1[pN-nm]", "E2[pN-nm]");
+    }
+    else{
+      fprintf (bvp.fileForUROutout, "%12s, %12s, %12s, %12s\n", "Height[nm]", "Force[pN]", "E1[pN-nm]", "E2[pN-nm]");
+    }
+#else
+    bvp.fileForUROutout=fopen ("URbyDisplacementControl.txt","w");
+    fprintf (bvp.fileForUROutout, "%12s, %12s, %12s, %12s\n", "Radius[nm]", "Reaction[pN]", "E1[pN-nm]", "E2[pN-nm]");
+#endif
+  }
+  
+  //load stepping
   TS ts;
-  PetscInt timeSteps=100000;
-  ierr = IGACreateTS(iga,&ts);CHKERRQ(ierr);
+  PetscInt timeSteps=numLoadSteps;
+  ierr = IGACreateTS(bvp.iga,&ts);CHKERRQ(ierr);
   ierr = TSSetType(ts,TSBEULER);CHKERRQ(ierr);
   //ierr = TSSetMaxSteps(ts,timeSteps+1);CHKERRQ(ierr);
-  ierr = TSSetMaxTime(ts, 1.0);
+  ierr = TSSetMaxTime(ts, 1.01);
   ierr = TSSetExactFinalTime(ts,TS_EXACTFINALTIME_STEPOVER);CHKERRQ(ierr);
   ierr = TSSetTime(ts,0.0);CHKERRQ(ierr);
   ierr = TSSetTimeStep(ts,1.0/timeSteps);CHKERRQ(ierr);
-  ierr = TSMonitorSet(ts,OutputMonitor,&user,NULL);CHKERRQ(ierr);
+  ierr = TSMonitorSet(ts,OutputMonitor,&bvp,NULL);CHKERRQ(ierr);
   ierr = TSSetFromOptions(ts);CHKERRQ(ierr);
-  
-  //
   SNES snes;
   TSGetSNES(ts,&snes);
-  SNESSetConvergenceTest(snes,SNESConverged_Interactive,(void*)&user,NULL);
-  //SNESLineSearch ls;
-  //SNESGetLineSearch(snes,&ls);
-  //SNESLineSearchSetType(ls,SNESLINESEARCHBT);
-  //ierr = SNESSetFromOptions(snes);CHKERRQ(ierr);
-  //SNESLineSearchView(ls,NULL);
- 
+  SNESSetConvergenceTest(snes,SNESConverged_Interactive,(void*)&bvp,NULL);
 #if PETSC_VERSION_LE(3,3,0)
   ierr = TSSolve(ts,U,NULL);CHKERRQ(ierr);
 #else
@@ -467,27 +350,10 @@ int main(int argc, char *argv[]) {
 #endif
 
   //
-  PetscMPIInt rank,size;
-  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
-  ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
-  if(rank == size-1){
-    //PetscScalar value;
-    //PetscInt index;
-    //ierr = VecGetValues(U0,1,&index,&value);CHKERRQ(ierr);
-    //ierr = PetscPrintf(PETSC_COMM_SELF,"x[%d]=%g\n",index,(double)value);CHKERRQ(ierr);
-  }
-
-  ierr = IGAWriteVec(iga,U,"mesh.out");CHKERRQ(ierr);
-#if !defined(PETSC_USE_COMPLEX)
-  ierr = IGADrawVecVTK(iga,U,"mesh.vts");CHKERRQ(ierr);
-#endif
-
-  //PetscBool draw = IGAGetOptBool(NULL,"-draw",PETSC_FALSE);
-  //if (draw) {ierr = VecView(x,PETSC_VIEWER_DRAW_WORLD);CHKERRQ(ierr);}
+  if (bvp.isProc0){fclose(bvp.fileForUROutout);}
   ierr = VecDestroy(&U);CHKERRQ(ierr);
-  ierr = VecDestroy(&U0);CHKERRQ(ierr);
   ierr = TSDestroy(&ts);CHKERRQ(ierr);
-  ierr = IGADestroy(&iga);CHKERRQ(ierr);
+  ierr = IGADestroy(&bvp.iga);CHKERRQ(ierr);
   ierr = PetscFinalize();CHKERRQ(ierr);
   return 0;
 }

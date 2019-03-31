@@ -2,6 +2,7 @@
 *.slo
 *.lo
 *.o
+*.pyc
 
 # Compiled Dynamic libraries
 *.so
@@ -12,7 +13,7 @@
 *.la
 *.a
 *.vtk
-*.dat
+*.txt
 *~
 *.vts
 *tgz
@@ -23,10 +24,15 @@ cmake_install.cmake
 *avi
 *mpeg
 *mp4
-*mat
 main
 results*
 *.o*
 configForce.o*
 stress_stretch.txt
 build
+simulations*
+L2Projection
+.DS_Store
+meshGenerators/*.dat
+U-R.txt
+meshGenerators/tempDump
