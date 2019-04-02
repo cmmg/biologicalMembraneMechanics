@@ -39,6 +39,7 @@ struct BVPStruct{
   PetscReal CollarLocation, CollarHeight;
   PetscReal CollarRadius, CollarHelixHeight;
   PetscReal CollarHelixPitch, CollarPressure;
+  PetscReal numHelicalRings;
   //
   PetscReal xMin;
 };
@@ -176,13 +177,26 @@ PetscErrorCode ResidualFunction(IGAPoint p,
 	  }
 	}
 	T Ru_i = ((L*L)/K)*(sigma_in+sigma_out)+(L/K)*moment;
-	
+	//
 	//body forces (force collar)
 	bool isCollar=false;
 	double CollarPressure=bvp->CollarPressure;
 	if (bvp->isCollar){
 	  if ((pCoords[1]>=bvp->CollarLocation) && (pCoords[1]<=(bvp->CollarLocation+bvp->CollarHeight))) {isCollar=true; }
 	}
+	else if (bvp->isCollarHelix){
+	  unsigned int numTracePoints=100*bvp->numHelicalRings;
+	  for (unsigned int t=0; t<numTracePoints; t++){
+	    PetscReal theta=(((double)t)/numTracePoints)*2*PI*bvp->numHelicalRings;
+	    PetscReal x=bvp->CollarRadius*std::cos(theta);
+	    PetscReal y=bvp->CollarRadius*std::sin(theta);
+	    PetscReal z=bvp->CollarLocation+theta*bvp->CollarHelixPitch/(2*PI);
+	    if (std::sqrt(std::pow(pCoords[0]-x,2)+std::pow(pCoords[1]-z,2)+std::pow(pCoords[2]-y,2))<=0.5*bvp->CollarHeight) {
+	      isCollar=true; break;
+	    }
+	  }
+	}
+	//
 	if (isCollar) {
 	  if (i!=1){ //remove Y component
 	    Ru_i+=-((L*L*L)/K)*N[n]*CollarPressure*k.normal[i]; 
@@ -220,6 +234,11 @@ PetscErrorCode ResidualFunction(IGAPoint p,
 	  else{
 	    Ru_i+=-((L*L)/K)*N[n]*rVec[i]*bvp->surfaceTensionAtBase; //pull in R-direction at bottom surface only
 	    //std::cout << rVec[0] << " " << rVec[1] << " " << rVec[2] << "\n"; 
+	  }
+	}
+	if (bvp->type==5){ //helical BVP tube tension
+	  if ((i==1) && (pCoords[1]>(1.0e-2*bvp->l))){ //pull in Y-Direction on top surface only
+	    //Ru_i+=-((L*L)/K)*N[n]*1.0*bvp->tractionOnTop;
 	  }
 	}
 	R[n*dof+i] = Ru_i*k.J_a; ///J_a is not the correct jacobian here as this is the surface jacobian and not the edge (line) jacobian.

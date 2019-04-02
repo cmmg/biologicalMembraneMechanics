@@ -18,9 +18,9 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 #include "include/solvers.h"
 
 //parameters
-#define bvpType 4
+#define bvpType 5
 #define stabilizationMethod 8 //Note: Method 8 will make the solution a bit time step dependent as previous time step solution (dx0dR, aPre terms, etc) are used.
-#define numLoadSteps 100
+#define numLoadSteps 20
 
 #undef  __FUNCT__
 #define __FUNCT__ "setBCs"
@@ -164,15 +164,11 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     bvp.epsilon=10*bvp.kMean;
 
     break;
-  case 4:
+    //
+  case 4: //fulltube (smaller height) pinching of base, cap and tube
 #ifdef enableForceControl
     bvp.isCollar=true;
     bvp.CollarHeight=bvp.l*0.2; //4nm
-    //bvp.CollarLocation=bvp.l*26.0; //pinch at tube
-    //bvp.CollarPressure=c_time*18;  //pinch at tube
-    //bvp.CollarLocation=bvp.l*38; //pinch at cap
-    //bvp.CollarPressure=c_time*24;  //pinch at cap
-    //
     //bvp.CollarLocation=bvp.l*0.0; //pinch at base
     //bvp.CollarPressure=c_time*0.45;  //pinch at base
     //bvp.CollarLocation=bvp.l*2.0; //pinch at tube
@@ -190,6 +186,29 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); 
     ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr);
     
+    break;
+    //
+  case 5: //helical BVP
+#ifdef enableForceControl
+    bvp.isCollarHelix=true;
+    bvp.CollarHeight=bvp.l*0.25; 
+    bvp.CollarLocation=bvp.l*2.25; //tube geometry
+    //bvp.CollarLocation=bvp.l*0.45; //base geometry
+    bvp.CollarHelixPitch=bvp.CollarHeight*2.0; //set the pitch here as increments of collar height (0x, 2x, 4x, etc.)
+    bvp.CollarRadius=bvp.l;
+    bvp.CollarPressure=c_time*1.4;
+    //bvp.tractionOnTop=0.0;
+    bvp.numHelicalRings=3.0;
+#endif
+
+    //Dirichlet
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,0.0);CHKERRQ(ierr); //X=0 at the bottom of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,0.0);CHKERRQ(ierr); //Z=0 at the bottom of the tube
+    //
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the tube
+    ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the tube
     break;
   }
   //
@@ -238,6 +257,7 @@ int main(int argc, char *argv[]) {
   bvp.CollarLocation=0.0;
   bvp.CollarHeight=0.0;
   bvp.CollarHelixPitch=0.0;
+  bvp.numHelicalRings=1.0;
   bvp.CollarRadius=0.0;
   bvp.CollarPressure=0.0;
   
@@ -268,9 +288,13 @@ int main(int argc, char *argv[]) {
     ierr = IGARead(iga,"meshes/baseCircleMeshr40h80C1.dat"); CHKERRQ(ierr);
     //ierr = IGARead(iga,"meshes/baseCircleMeshr60h40C1.dat"); CHKERRQ(ierr);
     break;
-  case 4: //pullout BVP
+  case 4: //fulltube (smaller height) base, cap and tube BVP
     //ierr = IGARead(iga,"meshes/tubeFullr40h30C1.dat"); CHKERRQ(ierr); //for base BVP
     ierr = IGARead(iga,"meshes/tubeFullr40h30C1Cap.dat"); CHKERRQ(ierr); //for tube, cap BVP
+    break;
+  case 5: //helical BVP
+    ierr = IGARead(iga,"meshes/tubeFullr20h100C1.dat"); CHKERRQ(ierr); //for tube, cap BVP
+    //ierr = IGARead(iga,"meshes/tubeFullr20h200C1.dat"); CHKERRQ(ierr); //for tube, cap BVP
     break;
   }
 
