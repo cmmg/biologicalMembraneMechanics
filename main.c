@@ -191,14 +191,14 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
   case 5: //helical BVP
 #ifdef enableForceControl
     bvp.isCollarHelix=true;
-    bvp.CollarHeight=bvp.l*0.25; 
-    bvp.CollarLocation=bvp.l*2.25; //tube geometry
+    bvp.CollarHeight=bvp.l*0.4; 
+    bvp.CollarLocation=bvp.l*4.0; //tube geometry
     //bvp.CollarLocation=bvp.l*0.45; //base geometry
-    bvp.CollarHelixPitch=bvp.CollarHeight*2.0; //set the pitch here as increments of collar height (0x, 2x, 4x, etc.)
+    bvp.CollarHelixPitch=bvp.CollarHeight*1.7; //set the pitch here as increments of collar height (0x, 2x, 4x, etc.)
     bvp.CollarRadius=bvp.l;
-    bvp.CollarPressure=c_time*1.4;
+    bvp.CollarPressure=c_time*0.5;
     //bvp.tractionOnTop=0.0;
-    bvp.numHelicalRings=3.0;
+    bvp.numHelicalRings=4.0;
 #endif
 
     //Dirichlet
@@ -293,8 +293,8 @@ int main(int argc, char *argv[]) {
     ierr = IGARead(iga,"meshes/tubeFullr40h30C1Cap.dat"); CHKERRQ(ierr); //for tube, cap BVP
     break;
   case 5: //helical BVP
-    ierr = IGARead(iga,"meshes/tubeFullr20h100C1.dat"); CHKERRQ(ierr); //for tube, cap BVP
-    //ierr = IGARead(iga,"meshes/tubeFullr20h200C1.dat"); CHKERRQ(ierr); //for tube, cap BVP
+    //ierr = IGARead(iga,"meshes/tubeFullr20h100C1.dat"); CHKERRQ(ierr); //for tube, cap BVP
+    ierr = IGARead(iga,"meshes/tubeFullr20h200C1.dat"); CHKERRQ(ierr); //for tube, cap BVP
     break;
   }
 
