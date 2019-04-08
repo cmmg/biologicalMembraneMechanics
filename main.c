@@ -10,7 +10,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 
 #define LagrangeMultiplierMethod
 #define enableFastResidualComputation
-#define enableForceControl //default is displacement control for some BVPs
+//#define enableForceControl //default is displacement control for some BVPs
 
 #include "include/residual.h"
 #include "include/project.h"
@@ -18,9 +18,9 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 #include "include/solvers.h"
 
 //parameters
-#define bvpType 5
+#define bvpType 0
 #define stabilizationMethod 8 //Note: Method 8 will make the solution a bit time step dependent as previous time step solution (dx0dR, aPre terms, etc) are used.
-#define numLoadSteps 20
+#define numLoadSteps 100
 
 #undef  __FUNCT__
 #define __FUNCT__ "setBCs"
@@ -50,25 +50,34 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
   //Dirichlet and Neumann BC's
   switch (bvp.type) {
   case 0: //cap BVP
+#ifdef enableForceControl
+    bvp.isCollar=true;
+    bvp.CollarLocation=bvp.l*0.0; //At the bottom
+    bvp.CollarHeight=bvp.l*0.1; //0.5nm (20*0.025)
+    bvp.CollarPressure=c_time*20;
+#else
     bvp.uDirichlet=0.8*c_time*bvp.l*1.0; //X=Z=uDirichlet at the bottom of the cap (displacement control)
     ProjectL2(&bvp);
-  
+#endif
+
     //Dirichlet
     ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the cap
     ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the cap
     ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the cap
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); //init for X=uDirichlet at the bottom of the cap
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr); //init for Z=uDirichlet at the bottom of the cap
-   
-    //Neumann
-    ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the bottom of the cap
-    ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_FALSE);CHKERRQ(ierr); //phi=0  at the top of the cap
-    bvp.angleConstraints[0]=true; bvp.angleConstraintValues[0]=90;
-    bvp.angleConstraints[1]=false; bvp.angleConstraintValues[1]=0;
-    bvp.epsilon=bvp.kMean;
     
+#ifndef  enableForceControl
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); //Init for X=uDirichlet at the bottom of the cap
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr); //Init for Z=uDirichlet at the bottom of the cap
+   
+     //Neumann
+    ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr); //phi=90 at the bottom of the cap
+    bvp.angleConstraints[0]=true; bvp.angleConstraintValues[0]=90;
+    bvp.epsilon=bvp.kMean;
+
+    //
     //Non-homogeneous Dirichlet BC values
     ierr = IGASetFixTable(bvp.iga,bvp.xDirichlet);CHKERRQ(ierr);    /* Set vector to read BCs from */
+#endif
     break;
     
   case 1: //tube BVP
@@ -275,7 +284,7 @@ int main(int argc, char *argv[]) {
   ierr = IGAAxisSetPeriodic(iga->axis[1],PETSC_TRUE);CHKERRQ(ierr);
   switch (bvp.type) {
   case 0: //cap BVP
-    ierr = IGARead(iga,"meshes/capMeshr80h40C1.dat"); CHKERRQ(ierr);
+    ierr = IGARead(iga,"meshes/cap40.dat"); CHKERRQ(ierr);
     break;
   case 1: //tube BVP
     //ierr = IGARead(iga,"meshes/tubeMeshr160h80C1.dat"); CHKERRQ(ierr);

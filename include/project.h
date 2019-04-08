@@ -208,7 +208,14 @@ PetscErrorCode FunctionUAtBase(IGAPoint p, const PetscScalar *U, PetscScalar *R,
   //get Xmin (the coordinate at the maximum value of pinching)
   double x=std::sqrt(k.x0[0]*k.x0[0]+k.x0[2]*k.x0[2]); //radial distance from the central cylindrical axis
   if (bvp->type!=4){ //for non full tube BVP
-    bvp->xMin=std::min(bvp->xMin, x);
+    if (bvp->type==0){ //for capBVP
+      if (k.x0[1]<0.01*bvp->l){
+	bvp->xMin=std::min(bvp->xMin, x);
+      }
+    }
+    else{
+      bvp->xMin=std::min(bvp->xMin, x);
+    }
   }
   else{//for full tube BVP
     if ((k.x0[1]>=0.75*bvp->CollarLocation) && (k.x0[1]<=(bvp->CollarLocation+bvp->CollarHeight))){

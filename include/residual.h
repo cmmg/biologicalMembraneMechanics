@@ -132,13 +132,9 @@ PetscErrorCode ResidualFunction(IGAPoint p,
   //rotational constraints
   bool hasRotationalConstraint = false; 
   PetscReal theta=0.0;
-  if (bvp->type==1){ //tubeBVP
-    if (std::abs(pCoords[1])<1.0e-2*bvp->l){ //bottom surface
-      if (bvp->angleConstraints[0]){theta=bvp->angleConstraintValues[0]; hasRotationalConstraint=true;}
-    }
-    else{ //top surface
-      if (bvp->angleConstraints[1]){theta=bvp->angleConstraintValues[1]; hasRotationalConstraint=true;}
-    }
+  if ((bvp->type==1) || (bvp->type==0)){ //tube or cap BVP
+    if (bvp->angleConstraints[0]){theta=bvp->angleConstraintValues[0]; hasRotationalConstraint=true;}
+    if (bvp->angleConstraints[1]){theta=bvp->angleConstraintValues[1]; hasRotationalConstraint=true;}
   }
   else if (bvp->type==3){ //pulloutBVP
     if (std::sqrt(pCoords[0]*pCoords[0]+pCoords[2]*pCoords[2])>0.5*bvp->l){ //bottom surface
