@@ -192,7 +192,7 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
 #ifdef enableForceControl
     bvp.isCollarHelix=true;
     bvp.CollarHeight=bvp.l*0.4; 
-    bvp.CollarLocation=bvp.l*0.25; //4.0; //tube geometry
+    bvp.CollarLocation=bvp.l*4.25; //4.0; //tube geometry
     //bvp.CollarLocation=bvp.l*0.45; //base geometry
     bvp.CollarHelixPitch=bvp.CollarHeight*1.7; //set the pitch here as increments of collar height (0x, 2x, 4x, etc.)
     bvp.CollarHelixBaseRadius=bvp.l*1.0;
