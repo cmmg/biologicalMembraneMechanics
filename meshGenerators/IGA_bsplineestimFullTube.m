@@ -5,11 +5,11 @@
 clear all; 
 % spline order
 k = 3; %Order in IGa notation is one less than the notation here. So k=3 is a 2nd order curve.
-numKnots=30;
+numKnots=40;
 t = [0 0 linspace(0,1,numKnots) 1 1 ]; %k repetitions of 0 and 1 at the ends of the knot vector
 %
 R=20.0;
-r=0.5*R;
+r=1*R;
 %
 %populate M (2XN points on the curve... where N is some large number that is sufficient for estimating the control points)
 %tube
@@ -20,15 +20,15 @@ r=0.5*R;
 %M=[theta; zeros(size(theta))];
 
 %base arc 
-%theta=linspace(pi/2,0,ceil(0.5*numKnots)); theta=theta(2:end);
-%M=[R+r-r*cos(theta);r-r*sin(theta)]
+theta=linspace(pi/2,0,ceil(2*numKnots)); theta=theta(2:end);
+M=[R+r-r*cos(theta);r-r*sin(theta)];
 %M=[M(1,:) R+r-r*cos(theta);M(2,:) 0.5*(r-r*sin(theta))];
 
 %line
-%theta=linspace(0.5*r,10*R,10*numKnots); 
-theta=linspace(0,5*R,2*numKnots); 
-%M=[M(1,:) R*ones(size(theta));M(2,:) theta];
-M=[R*ones(size(theta));theta];
+theta=linspace(r,10*R,6*numKnots); 
+%theta=linspace(0,10*R,2*numKnots); 
+M=[M(1,:) R*ones(size(theta));M(2,:) theta];
+%M=[R*ones(size(theta));theta];
 
 %cap 
 %theta=linspace(0, 0.8*pi/2,ceil(numKnots)); theta=theta(2:end);
@@ -58,4 +58,4 @@ axis equal;
 order=k-1;
 knots=t;
 controlPoints=D;
-save(['tubeFullExactGeometry' num2str(numKnots) '.mat'],'order','knots','controlPoints','-v6') %version 6 format needed to read into python using scipy.io.loadmat
+save(['tubeFullWithBaseFor1R4Helix' num2str(numKnots) '.mat'],'order','knots','controlPoints','-v6') %version 6 format needed to read into python using scipy.io.loadmat

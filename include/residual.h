@@ -39,6 +39,7 @@ struct BVPStruct{
   PetscReal CollarLocation, CollarHeight;
   PetscReal CollarRadius, CollarHelixHeight;
   PetscReal CollarHelixPitch, CollarPressure;
+  PetscReal CollarHelixBaseRadius;
   PetscReal numHelicalRings;
   //
   PetscReal xMin;
@@ -184,9 +185,15 @@ PetscErrorCode ResidualFunction(IGAPoint p,
 	  unsigned int numTracePoints=100*bvp->numHelicalRings;
 	  for (unsigned int t=0; t<numTracePoints; t++){
 	    PetscReal theta=(((double)t)/numTracePoints)*2*PI*bvp->numHelicalRings;
-	    PetscReal x=bvp->CollarRadius*std::cos(theta);
-	    PetscReal y=bvp->CollarRadius*std::sin(theta);
 	    PetscReal z=bvp->CollarLocation+theta*bvp->CollarHelixPitch/(2*PI);
+	    PetscReal ri=bvp->CollarRadius;
+	    PetscReal ro=bvp->CollarHelixBaseRadius+bvp->CollarRadius;
+	    PetscReal r=bvp->CollarHelixBaseRadius;
+	    if (z<r){
+	      ri=ro-(r*std::sqrt(1.0-std::pow(1.0-z/r,2.0)));
+	    }
+	    PetscReal x=ri*std::cos(theta);
+	    PetscReal y=ri*std::sin(theta);
 	    if (std::sqrt(std::pow(pCoords[0]-x,2)+std::pow(pCoords[1]-z,2)+std::pow(pCoords[2]-y,2))<=0.5*bvp->CollarHeight) {
 	      isCollar=true; break;
 	    }

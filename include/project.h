@@ -151,9 +151,15 @@ PetscErrorCode FunctionReactions(IGAPoint p, const PetscScalar *U, PetscScalar *
       unsigned int numTracePoints=100*bvp->numHelicalRings;
       for (unsigned int t=0; t<numTracePoints; t++){
 	PetscReal theta=(((double)t)/numTracePoints)*2*PI*bvp->numHelicalRings;
-	PetscReal x=bvp->CollarRadius*std::cos(theta);
-	PetscReal y=bvp->CollarRadius*std::sin(theta);
 	PetscReal z=bvp->CollarLocation+theta*bvp->CollarHelixPitch/(2*PI);
+	PetscReal ri=bvp->CollarRadius;
+	PetscReal ro=bvp->CollarHelixBaseRadius+bvp->CollarRadius;
+	PetscReal r=bvp->CollarHelixBaseRadius;
+	if (z<r){
+	  ri=ro-(r*std::sqrt(1.0-std::pow(1.0-z/r,2.0)));
+	}
+	PetscReal x=ri*std::cos(theta);
+	PetscReal y=ri*std::sin(theta);
 	if (std::sqrt(std::pow(pCoords[0]-x,2)+std::pow(pCoords[1]-z,2)+std::pow(pCoords[2]-y,2))<=0.5*bvp->CollarHeight) {
 	  isCollar=true; break;
 	}
@@ -410,7 +416,12 @@ PetscErrorCode ProjectFields(Vec& U, void *ctx)
     PetscReal xMin=bvp->xMin;
     MPIU_Allreduce(&xMin,&xMin,1,MPIU_REAL,MPIU_MIN,PetscObjectComm((PetscObject)bvp->iga->draw_dm));
     uVal=xMin;
-    rVal=bvp->CollarPressure*bvp->CollarHeight; //Force per unit length (pressure*thickness)
+    if (bvp->type!=5){
+      rVal=bvp->CollarPressure*bvp->CollarHeight; //Force per unit length (pressure*thickness)
+    }
+    else{
+      rVal=bvp->CollarPressure*bvp->CollarHeight*bvp->numHelicalRings; //Force per unit length (pressure*thickness)
+    }
   }
   else{ //pullOut BVP
     VecStrideMax(U,1,NULL,&uVal); 

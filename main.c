@@ -201,18 +201,19 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
 #ifdef enableForceControl
     bvp.isCollarHelix=true;
     bvp.CollarHeight=bvp.l*0.4; 
-    bvp.CollarLocation=bvp.l*4.0; //tube geometry
+    bvp.CollarLocation=bvp.l*4.25; //4.0; //tube geometry
     //bvp.CollarLocation=bvp.l*0.45; //base geometry
     bvp.CollarHelixPitch=bvp.CollarHeight*1.7; //set the pitch here as increments of collar height (0x, 2x, 4x, etc.)
+    bvp.CollarHelixBaseRadius=bvp.l*1.0;
     bvp.CollarRadius=bvp.l;
-    bvp.CollarPressure=c_time*0.5;
+    bvp.CollarPressure=c_time*0.75;
     //bvp.tractionOnTop=0.0;
-    bvp.numHelicalRings=4.0;
+    bvp.numHelicalRings=3.0;
 #endif
 
     //Dirichlet
     ierr = IGASetBoundaryValue(bvp.iga,0,0,0,0.0);CHKERRQ(ierr); //X=0 at the bottom of the tube
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the tube
+    //ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr); //Y=0 at the bottom of the tube
     ierr = IGASetBoundaryValue(bvp.iga,0,0,2,0.0);CHKERRQ(ierr); //Z=0 at the bottom of the tube
     //
     ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the tube
@@ -303,7 +304,9 @@ int main(int argc, char *argv[]) {
     break;
   case 5: //helical BVP
     //ierr = IGARead(iga,"meshes/tubeFullr20h100C1.dat"); CHKERRQ(ierr); //for tube, cap BVP
-    ierr = IGARead(iga,"meshes/tubeFullr20h200C1.dat"); CHKERRQ(ierr); //for tube, cap BVP
+    //ierr = IGARead(iga,"meshes/tubeFullr20h200C1.dat"); CHKERRQ(ierr); //for tube, cap BVP
+    //ierr = IGARead(iga,"meshes/tubeFullWithBaseFor4Helix40H200.dat"); CHKERRQ(ierr);
+    ierr = IGARead(iga,"meshes/tubeFullWithBaseFor1R4HelixH200.dat"); CHKERRQ(ierr);
     break;
   }
 
