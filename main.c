@@ -140,10 +140,10 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
   case 3: //pullout BVP
     //bottom surface
     ierr = IGAFormSetBoundaryForm (form,0,0,PETSC_TRUE);CHKERRQ(ierr);
-    bvp.surfaceTensionAtBase=0.2;
+    bvp.surfaceTensionAtBase=0.1;
     //topsurface
     ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr);
-    bvp.tractionOnTop=c_time*40; // (tension=0.1, traction=28 with 300 steps works), (0.2, 40 with 300 steps works)
+    bvp.tractionOnTop=c_time*28; // (tension=0.1, traction=28 with 300 steps works), (0.2, 40 with 300 steps works)
 #ifndef  enableForceControl
     bvp.uDirichlet= (c_time)*bvp.l*0.05; //pull out height
     ierr = IGASetBoundaryValue(bvp.iga,0,1,1,bvp.uDirichlet);CHKERRQ(ierr); //Y at the top of the base
