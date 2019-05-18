@@ -355,7 +355,7 @@ PetscErrorCode ProjectFields(Vec& U, void *ctx)
   }
   else{ //pullOut BVP
     VecStrideMax(U,1,NULL,&uVal); 
-    rVal=bvp->tractionOnTop*2*3.142*(bvp->l/100.0); //Force (traction*circumference) 
+    rVal=bvp->tractionOnTop*2*3.142*(bvp->l/100.0); //Force (traction*circumference) (dividing by 100 as the radius of the circle at the tip where force is applied is 100^th (0.2nm) the radius of the tube (20nm).)
   }
 #else
   if (bvp->type!=3){
