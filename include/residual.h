@@ -212,15 +212,16 @@ PetscErrorCode ResidualFunction(IGAPoint p,
 	  }
 	}
 	if (bvp->type==3){ //surface traction of pullout problem
-	  if ((i==1) && (pCoords[1]>(1.0e-2*bvp->l))){ //pull in Y-Direction on top surface only
+	  if ((i==1) && (pCoords[1]>(1.0e-3*bvp->l))){ //pull in Y-Direction on top surface only
 	    Ru_i+=-((L*L)/K)*N[n]*1.0*bvp->tractionOnTop;
 	  }
 	  else{
+	    if (((i==0) || (i==2)) && (pCoords[1]<(1.0e-3*bvp->l)))
 	    Ru_i+=-((L*L)/K)*N[n]*rVec[i]*bvp->surfaceTensionAtBase; //pull in R-direction at bottom surface only
 	    //std::cout << rVec[0] << " " << rVec[1] << " " << rVec[2] << "\n"; 
 	  }
 	}
-	R[n*dof+i] = Ru_i*k.J_A; 
+	R[n*dof+i] = Ru_i*k.J_A; // this factor J_A is the area jacobian and not the curve jacobian, and this difference may be causing the factor of 5 difference in the pullout force value for the pullout simulations. Needs to be corrected in future. 
       }
 #ifdef LagrangeMultiplierMethod
       R[n*dof+3] = 0.0;

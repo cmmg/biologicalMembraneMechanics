@@ -71,7 +71,8 @@ PetscErrorCode computeEnergy(KinematicsStruct<PetscScalar>& k, HelfrichModel<Pet
 
   
   //For Helfrich energy formulation
-  energy[0]= (K*dH*dH+KGaussian*Kappa)*J*k.J_A; //bending energy
+  //energy[0]= (K*dH*dH+KGaussian*Kappa)*J*k.J_A; //bending energy
+  energy[0]= (K*dH*dH)*J*k.J_A; //bending energy
 #ifdef LagrangeMultiplierMethod
   energy[1]=q*(J-1)*J*k.J_A; //tension energy for Lagrange multiplier method
 #else
