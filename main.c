@@ -20,7 +20,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 //parameters
 #define bvpType 3
 #define stabilizationMethod 8 //Note: Method 8 will make the solution a bit time step dependent as previous time step solution (dx0dR, aPre terms, etc) are used.
-#define numLoadSteps 300
+#define numLoadSteps 75
 
 #undef  __FUNCT__
 #define __FUNCT__ "setBCs"
@@ -143,7 +143,7 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
     bvp.surfaceTensionAtBase=0.1;
     //topsurface
     ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_TRUE);CHKERRQ(ierr);
-    bvp.tractionOnTop=c_time*28; // (tension=0.1, traction=28 with 300 steps works), (0.2, 40 with 300 steps works)
+    bvp.tractionOnTop=c_time*2.2; // (tension=0.1, traction=28 with 300 steps works), (0.2, 40 with 300 steps works)
 #ifndef  enableForceControl
     bvp.uDirichlet= (c_time)*bvp.l*0.05; //pull out height
     ierr = IGASetBoundaryValue(bvp.iga,0,1,1,bvp.uDirichlet);CHKERRQ(ierr); //Y at the top of the base
@@ -159,9 +159,9 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
 #endif
 
     //Neumann
-    bvp.angleConstraints[0]=false; 
+    bvp.angleConstraints[0]=true; 
     bvp.angleConstraints[1]=false; 
-    bvp.epsilon=bvp.kMean*0.0;
+    bvp.epsilon=bvp.kMean*1.0;
     break;
   }
   //
@@ -191,7 +191,7 @@ int main(int argc, char *argv[]) {
   bvp.energyFactor=1.0;
   //material constants (in actual units)
   bvp.l=20.0;              //20nm
-  bvp.kMean=320.0;         //320pN-nm, mean curvature modulus
+  bvp.kMean=20; //320.0;         //320pN-nm, mean curvature modulus
   bvp.kGaussian=-0.7*bvp.kMean;      //Gaussian curvature modulus
   bvp.mu=1.0*bvp.kMean;       //shear modulus for stabilization terms
   bvp.lambda=10*bvp.kMean;        //penalty parameter
