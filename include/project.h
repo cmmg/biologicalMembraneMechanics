@@ -430,7 +430,9 @@ PetscErrorCode ProjectFields(Vec& U, void *ctx)
 #else
   if (bvp->type!=3){
     uVal=bvp->l-bvp->uDirichlet;
-    VecStrideMax(R,0,NULL,&rVal); //non-pullout BVP
+    VecStrideMax(R,0,NULL,&rVal);//non-pullout BVP
+    rVal=rVal/(bvp->l*3.142/40); //this is to produce the equivalent pressure by divding by the length (R*Theta=R*Pi/40 for mesh with 40 radial mesh points)
+                                 //over which the reaction force at one node can be pressumed to act. 
   }
   else{
     uVal=bvp->uDirichlet;

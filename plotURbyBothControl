@@ -1,0 +1,2 @@
+gnuplot -p -e 'plot "URbyForceControl.txt" using 1:2 title "Force control", "URbyDisplacementControl.txt" using 1:2 title "Disp Control"'
+gnuplot -p -e 'plot "URbyForceControl.txt" using 1:3 title "Force control", "URbyDisplacementControl.txt" using 1:3 title "Disp Control"'

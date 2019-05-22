@@ -18,9 +18,9 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 #include "include/solvers.h"
 
 //parameters
-#define bvpType 0
+#define bvpType 1
 #define stabilizationMethod 8 //Note: Method 8 will make the solution a bit time step dependent as previous time step solution (dx0dR, aPre terms, etc) are used.
-#define numLoadSteps 100
+#define numLoadSteps 200
 
 #undef  __FUNCT__
 #define __FUNCT__ "setBCs"
@@ -45,7 +45,8 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
   ierr = IGAFormSetBoundaryForm (form,0,1,PETSC_FALSE);CHKERRQ(ierr);
   ierr = IGAFormSetBoundaryForm (form,1,0,PETSC_FALSE);CHKERRQ(ierr);
   ierr = IGAFormSetBoundaryForm (form,1,1,PETSC_FALSE);CHKERRQ(ierr);
-  bvp.angleConstraints[0]= bvp.angleConstraints[1]=false;
+  bvp.angleConstraints[0]=false;
+  bvp.angleConstraints[1]=false;
   
   //Dirichlet and Neumann BC's
   switch (bvp.type) {
@@ -360,7 +361,7 @@ int main(int argc, char *argv[]) {
     }
 #else
     bvp.fileForUROutout=fopen ("URbyDisplacementControl.txt","w");
-    fprintf (bvp.fileForUROutout, "%12s, %12s, %12s, %12s\n", "Radius[nm]", "Reaction[pN]", "E1[pN-nm]", "E2[pN-nm]");
+    fprintf (bvp.fileForUROutout, "%12s, %12s, %12s, %12s\n", "Radius[nm]", "Pressure[pN/nm]", "E1[pN-nm]", "E2[pN-nm]"); //changed Reaction values to Pressure values by dividing by R*Pi/nPoints in project.h
 #endif
   }
   
