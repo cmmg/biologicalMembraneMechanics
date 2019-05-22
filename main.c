@@ -10,7 +10,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 
 #define LagrangeMultiplierMethod
 #define enableFastResidualComputation
-//#define enableForceControl //default is displacement control for some BVPs
+#define enableForceControl //default is displacement control for some BVPs
 
 #include "include/residual.h"
 #include "include/project.h"
@@ -18,7 +18,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 #include "include/solvers.h"
 
 //parameters
-#define bvpType 0
+#define bvpType 2
 #define stabilizationMethod 8 //Note: Method 8 will make the solution a bit time step dependent as previous time step solution (dx0dR, aPre terms, etc) are used.
 #define numLoadSteps 100
 
