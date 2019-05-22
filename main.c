@@ -18,7 +18,7 @@ typedef Sacado::Fad::DFad<double> doubleAD;
 #include "include/solvers.h"
 
 //parameters
-#define bvpType 2
+#define bvpType 4
 #define stabilizationMethod 8 //Note: Method 8 will make the solution a bit time step dependent as previous time step solution (dx0dR, aPre terms, etc) are used.
 #define numLoadSteps 100
 
@@ -179,22 +179,22 @@ PetscErrorCode setBCs(BVPStruct& bvp, PetscInt it_number, PetscReal c_time)
 #ifdef enableForceControl
     bvp.isCollar=true;
     bvp.CollarHeight=bvp.l*0.2; //4nm
-    //bvp.CollarLocation=bvp.l*0.0; //pinch at base
-    //bvp.CollarPressure=c_time*0.45;  //pinch at base
+    bvp.CollarLocation=bvp.l*0.1; //pinch at base
+    bvp.CollarPressure=c_time*0.75;  //pinch at base
     //bvp.CollarLocation=bvp.l*2.0; //pinch at tube
     //bvp.CollarPressure=c_time*2;  //pinch at tube
-    bvp.CollarLocation=bvp.l*4.0; //pinch at cap
-    bvp.CollarPressure=c_time*2.5;  //pinch at cap
+    //bvp.CollarLocation=bvp.l*4.0; //pinch at cap
+    //bvp.CollarPressure=c_time*2.5;  //pinch at cap
 #endif
      
     //Dirichlet
     ierr = IGASetBoundaryValue(bvp.iga,0,1,0,0.0);CHKERRQ(ierr); //X=0 at the top of the tube
-    ierr = IGASetBoundaryValue(bvp.iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the tube
+    //ierr = IGASetBoundaryValue(bvp.iga,0,1,1,0.0);CHKERRQ(ierr); //Y=0 at the top of the tube
     ierr = IGASetBoundaryValue(bvp.iga,0,1,2,0.0);CHKERRQ(ierr); //Z=0 at the top of the tube
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,1,/*dummy*/0.0);CHKERRQ(ierr);
-    //remove comment for tube and cap BVP
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); 
-    ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr);
+    ierr = IGASetBoundaryValue(bvp.iga,0,0,1,0.0);CHKERRQ(ierr);
+    //remove comment for tube and cap BVP, and comment for base BVP
+    //ierr = IGASetBoundaryValue(bvp.iga,0,0,0,/*dummy*/0.0);CHKERRQ(ierr); 
+    //ierr = IGASetBoundaryValue(bvp.iga,0,0,2,/*dummy*/0.0);CHKERRQ(ierr);
     
     break;
     //
