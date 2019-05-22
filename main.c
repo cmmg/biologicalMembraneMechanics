@@ -2,7 +2,6 @@
   Kirchhoff-Love shell implementation in PetIGA
   author: Shiva Rudraraju
  */
-
 #include "petiga.h"
 #include <math.h> 
 #include <Sacado.hpp>
